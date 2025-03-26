@@ -43,7 +43,19 @@ class Trainer():
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout,
                                 n_neighbor=self.config.n_neighbor,
-                                d_chunk=self.config.d_chunk)
+                                d_chunk=self.config.d_chunk,
+                                is_original=False)
+        elif self.config.model_type == 'OriginalTransformer':
+            model = Transformer(d_model=self.config.d_model,
+                                nhead=self.config.nhead,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout,
+                                n_neighbor=self.config.n_neighbor,
+                                d_chunk=self.config.d_chunk,
+                                is_original=True)
         elif self.config.model_type == 'TorchTransformer':
             model = TorchTransformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
@@ -173,7 +185,7 @@ class Trainer():
                 self.min_loss = test_loss
 
             # 打印日志
-            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Train Time: {Time.get()}, Attention Time: {Counter.get():.3f}.\n')
+            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Train Time: {Time.get()}.\n')
         
         write_log(self.config, self.min_loss, self.config.note)
 
@@ -181,9 +193,12 @@ class Trainer():
         self.visualize()
 
 if __name__ == '__main__':
-    config = Config()
-    # config = DebugConfig()
-    config.seq_len = 512
-    for i in range(3):
-        trainer = Trainer(config)
-        trainer.train()
+    config = DebugConfig()
+    trainer = Trainer(config)
+    trainer.train()
+
+    # config = Config()
+    # config.seq_len = 512
+    # for i in range(3):
+    #     trainer = Trainer(config)
+    #     trainer.train()

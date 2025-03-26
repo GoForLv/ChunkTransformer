@@ -6,9 +6,8 @@ from datetime import datetime
 import time
 
 class DebugConfig():
-    dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
-    model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'MyTransformer', 'TorchTransformer'
-    
+    dataset='ETT'                        # 'MNIST', 'ETT', 'SELF'
+    model_type='OriginalTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
     # 日志
     note = '使用TorchTransformer，'
 
@@ -28,7 +27,7 @@ class DebugConfig():
 
     # 训练超参数
     seq_len=4
-    epochs=50
+    epochs=1
     batch_size=4
     lr=0.0005
     dropout=0.1
@@ -36,8 +35,8 @@ class DebugConfig():
     train_percent=0.99
 
 class Config():
-    dataset='ETT'                # 'MNIST', 'ETT', 'SELF'
-    model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'MyTransformer', 'TorchTransformer'
+    dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
+    model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
     
     # 日志
     note = '使用MyTransformer，传统多头注意力作为对照。'
@@ -80,7 +79,7 @@ def write_log(config: Config, min_loss, note):
 
         formatted_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log.write(formatted_time + '\n')
-        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, Train Time: {Time.get()}, Attention Time: {Counter.get():.3f}\n')
+        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, Train Time: {Time.get()}\n')
 
         # 维度
         log.write(f'd_model: {config.d_model}, d_ffn: {config.d_ffn}, d_input: {config.d_input}, d_output: {config.d_output}\n')
@@ -93,6 +92,8 @@ def write_log(config: Config, min_loss, note):
 
         # 训练超参数
         log.write(f'seq_len: {config.seq_len}, epochs: {config.epochs}, batch_size: {config.batch_size}, lr: {config.lr}, dropout: {config.dropout}\n\n')
+
+    Time.clear()
 
 class Time():
     start_time = None
@@ -111,20 +112,7 @@ class Time():
         minute = int(Time.delta_time / 60)
         second = Time.delta_time % 60
         return f'{minute}m{second:.2f}s'
-    
-class Counter():
-    start_time = None
-    delta_time = 0
 
     @staticmethod
-    def start():
-        Counter.start_time = time.time()
-    
-    @staticmethod
-    def end():
-        Counter.delta_time += time.time() - Counter.start_time
-
-    @staticmethod
-    def get():
-        # 毫秒
-        return Counter.delta_time * 1000
+    def clear():
+        Time.delta_time = 0

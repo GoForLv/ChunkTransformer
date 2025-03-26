@@ -1,2 +1,6 @@
-#
+# 文件
 unused.ipynb
+
+# 目录
+__pycache__
+logs
