@@ -175,9 +175,9 @@ class Trainer():
             self.current_epoch = epoch
             
             # 训练阶段
-            Time.start()
+            Record.start()
             train_loss = self.train_epoch()
-            Time.end()
+            Record.end()
             
             # 验证阶段
             test_loss = self.test()
@@ -185,7 +185,7 @@ class Trainer():
                 self.min_loss = test_loss
 
             # 打印日志
-            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Train Time: {Time.get()}.\n')
+            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Train Time: {Record.get_time():.3f}s, Peak Memory: {Record.get_peak_memory():.3f}MB.\n')
         
         write_log(self.config, self.min_loss, self.config.note)
 

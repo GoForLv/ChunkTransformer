@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-from utils import Counter
-
 import math
 
 class PositionalEncoding(nn.Module):

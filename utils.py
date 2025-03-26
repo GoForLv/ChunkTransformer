@@ -9,7 +9,7 @@ class DebugConfig():
     dataset='ETT'                        # 'MNIST', 'ETT', 'SELF'
     model_type='OriginalTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
     # 日志
-    note = '使用TorchTransformer，'
+    note = 'Debug.'
 
     # 维度
     d_model=4
@@ -79,7 +79,7 @@ def write_log(config: Config, min_loss, note):
 
         formatted_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log.write(formatted_time + '\n')
-        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, Train Time: {Time.get()}\n')
+        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, Train Time: {Record.get_time():.3f}s, Peak Memory: {Record.get_avg_peak_memory():.3f}MB\n')
 
         # 维度
         log.write(f'd_model: {config.d_model}, d_ffn: {config.d_ffn}, d_input: {config.d_input}, d_output: {config.d_output}\n')
@@ -87,32 +87,49 @@ def write_log(config: Config, min_loss, note):
         # 稀疏注意力超参数
         log.write(f'n_neighbor: {config.n_neighbor}\n')
 
+
         # 模型超参数
         log.write(f'nhead: {config.nhead}, num_encoder_layers: {config.num_encoder_layers}\n')
 
         # 训练超参数
         log.write(f'seq_len: {config.seq_len}, epochs: {config.epochs}, batch_size: {config.batch_size}, lr: {config.lr}, dropout: {config.dropout}\n\n')
 
-    Time.clear()
+    Record.clear()
 
-class Time():
+class Record():
     start_time = None
     delta_time = 0
+    peak_memorys = []
 
     @staticmethod
     def start():
-        Time.start_time = time.time()
+        # 重置内存统计
+        torch.cuda.reset_peak_memory_stats()
+        # 确保所有CUDA操作完成
+        torch.cuda.synchronize()
+        Record.start_time = time.time()
     
     @staticmethod
     def end():
-        Time.delta_time += time.time() - Time.start_time
+        torch.cuda.synchronize()
+        Record.delta_time += time.time() - Record.start_time
+        peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
+        Record.peak_memorys.append(peak_memory)
 
     @staticmethod
-    def get():
-        minute = int(Time.delta_time / 60)
-        second = Time.delta_time % 60
-        return f'{minute}m{second:.2f}s'
+    def get_time():
+        # s
+        return Record.delta_time
+    
+    @staticmethod
+    def get_peak_memory():
+        # MB
+        return Record.peak_memorys[-1]
+
+    @staticmethod
+    def get_avg_peak_memory():
+        return sum(Record.peak_memorys) / len(Record.peak_memorys)
 
     @staticmethod
     def clear():
-        Time.delta_time = 0
+        Record.delta_time = 0

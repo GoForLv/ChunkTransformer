@@ -122,3 +122,13 @@ seq_len: 512, epochs: 50, batch_size: 64, lr: 0.0005, dropout: 0.1
 ################################################################################
 优化测试和辅助工具
 ################################################################################
+
+********************************************************************************
+使用TorchTransformer，
+2025-03-26 17:31:45
+model: OriginalTransformer, min_loss: 9.8026, Train Time: 79.525s, Peak Memory: 18.323
+d_model: 4, d_ffn: 512, d_input: 7, d_output: 7
+n_neighbor: 2
+nhead: 2, num_encoder_layers: 6
+seq_len: 4, epochs: 1, batch_size: 4, lr: 0.0005, dropout: 0.1
+
