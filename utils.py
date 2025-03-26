@@ -6,14 +6,14 @@ from datetime import datetime
 import time
 
 class DebugConfig():
-    dataset='ETT'                        # 'MNIST', 'ETT', 'SELF'
-    model_type='OriginalTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
+    dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
+    model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
     # 日志
     note = 'Debug.'
 
     # 维度
-    d_model=4
-    d_ffn=512
+    d_model=16
+    d_ffn=64
     d_input=7
     d_output=7
 
@@ -27,8 +27,8 @@ class DebugConfig():
 
     # 训练超参数
     seq_len=4
-    epochs=1
-    batch_size=4
+    epochs=10
+    batch_size=64
     lr=0.0005
     dropout=0.1
 

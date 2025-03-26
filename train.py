@@ -8,7 +8,7 @@ from model import MLP, LeNet, RNN, Transformer, TorchTransformer
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-
+from torch.profiler import profile, record_function, ProfilerActivity
 
 class Trainer():
     def __init__(self, config):
@@ -21,6 +21,7 @@ class Trainer():
         self.train_loader, self.test_loader = self._dataloader()
         self.optimizer = self._optimizer()
         self.criterion = self._criterion()
+        # self.prof = self._profiler()
 
         # 训练状态
         self.current_epoch = 0
@@ -88,6 +89,16 @@ class Trainer():
         #                        lr=self.config.lr)
         return torch.optim.Adam(params=self.model.parameters(), lr=self.config.lr)
 
+    def _profiler(self):
+        return profile(
+                    record_shapes=True,   # 记录张量形状
+                    profile_memory=True,  # 分析内存使用
+                    with_stack=True,      # 记录调用栈
+                    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],          # 分析 CPU 和 GPU
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs'), # 保存到 ./logs, 以使用TensorBoard
+                    # schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2), # 采样策略
+                )
+
     def train_epoch(self):
         self.model.train()
         total_loss = 0
@@ -97,15 +108,23 @@ class Trainer():
             labels = labels.to(self.device)
 
             # 前向传播
+            # with record_function("forward"):
             outputs = self.model(inputs)
+            
+            # 损失计算
+            # with record_function("criterion"):
             loss = self.criterion(outputs, labels)
             
             # 反向传播
-            self.optimizer.zero_grad()
+            # with record_function("backward"):
             loss.backward()
+
+            self.optimizer.zero_grad()
             self.optimizer.step()
             
             total_loss += loss.item()
+
+            # self.prof.step()
 
         return total_loss / len(self.train_loader)
 
@@ -176,7 +195,9 @@ class Trainer():
             
             # 训练阶段
             Record.start()
+            # self.prof.start()
             train_loss = self.train_epoch()
+            # self.prof.stop()
             Record.end()
             
             # 验证阶段
@@ -186,6 +207,7 @@ class Trainer():
 
             # 打印日志
             print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Train Time: {Record.get_time():.3f}s, Peak Memory: {Record.get_peak_memory():.3f}MB.\n')
+            # print(self.prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
         
         write_log(self.config, self.min_loss, self.config.note)
 
@@ -197,6 +219,10 @@ if __name__ == '__main__':
     trainer = Trainer(config)
     trainer.train()
 
+    # config = Config()
+    # trainer = Trainer(config)
+    # trainer.train()
+    
     # config = Config()
     # config.seq_len = 512
     # for i in range(3):
