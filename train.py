@@ -26,6 +26,7 @@ class Trainer():
         # 训练状态
         self.current_epoch = 0
         self.min_loss = 1e9
+        self.peak_memory = 0
 
     def _model(self):
         if self.config.model_type == 'MLP':
@@ -124,8 +125,8 @@ class Trainer():
 
             # 优化
             Recorder.start("optimizer")
-            self.optimizer.zero_grad()
             self.optimizer.step()
+            self.optimizer.zero_grad()
             Recorder.end("optimizer")
             
             total_loss += loss.item()
@@ -193,10 +194,11 @@ class Trainer():
 
         plt.legend()
         plt.show()
-        pass
 
     def train(self):
         for epoch in range(self.config.epochs):
+            torch.cuda.reset_peak_memory_stats()
+
             self.current_epoch = epoch
             
             # 训练阶段
@@ -214,28 +216,40 @@ class Trainer():
             if test_loss < self.min_loss:
                 self.min_loss = test_loss
 
+            peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
+            self.peak_memory = max(self.peak_memory, peak_memory)
             # 打印日志
-            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}.')
+            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
             Recorder.epoch_sum()
             print(Recorder.get_epoch_record())
             # print(self.prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
         
-        write_log(self.config, self.min_loss, self.config.note)
+        write_log(self.config, self.min_loss, self.peak_memory)
 
         # 可视化
-        self.visualize()
+        # self.visualize()
 
 if __name__ == '__main__':
-    config = DebugConfig()
-    trainer = Trainer(config)
-    trainer.train()
+    import argparse
+    parser = argparse.ArgumentParser(description='帮助文档')
 
-    # config = Config()
-    # trainer = Trainer(config)
-    # trainer.train()
-    
-    # config = Config()
-    # config.seq_len = 512
-    # for i in range(3):
-    #     trainer = Trainer(config)
-    #     trainer.train()
+    parser.add_argument('--model_type', help='TorchTransformer, OriginalTransformer, MyTransformer')
+    parser.add_argument('--seq_len', type=int, help='')
+    parser.add_argument('--train_count', type=int, help='')
+    parser.add_argument('--debug', action='store_true')
+
+    args = parser.parse_args()
+    # print(args)
+
+    if args.debug == True:
+        config = DebugConfig()
+        trainer = Trainer(config)
+        trainer.train()
+        exit()
+
+    config = Config()
+    config.model_type = args.model_type
+    config.seq_len = args.seq_len
+    for i in range(args.train_count):
+        trainer = Trainer(config)
+        trainer.train()
