@@ -1,6 +1,8 @@
 # 文件
 unused.ipynb
+.download.json
 
 # 目录
 __pycache__
 logs
+.ipynb_checkpoints
