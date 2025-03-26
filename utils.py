@@ -27,7 +27,7 @@ class DebugConfig():
 
     # 训练超参数
     seq_len=4
-    epochs=10
+    epochs=3
     batch_size=64
     lr=0.0005
     dropout=0.1
@@ -79,14 +79,18 @@ def write_log(config: Config, min_loss, note):
 
         formatted_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log.write(formatted_time + '\n')
-        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, Train Time: {Record.get_time():.3f}s, Peak Memory: {Record.get_avg_peak_memory():.3f}MB\n')
+        
+        # 模型损失
+        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}\n')
+
+        # 时空Cost
+        log.write(Recorder.get_avg_record())
 
         # 维度
         log.write(f'd_model: {config.d_model}, d_ffn: {config.d_ffn}, d_input: {config.d_input}, d_output: {config.d_output}\n')
         
         # 稀疏注意力超参数
-        log.write(f'n_neighbor: {config.n_neighbor}\n')
-
+        log.write(f'n_neighbor: {config.n_neighbor}, d_chunk: {config.d_chunk}\n')
 
         # 模型超参数
         log.write(f'nhead: {config.nhead}, num_encoder_layers: {config.num_encoder_layers}\n')
@@ -94,42 +98,90 @@ def write_log(config: Config, min_loss, note):
         # 训练超参数
         log.write(f'seq_len: {config.seq_len}, epochs: {config.epochs}, batch_size: {config.batch_size}, lr: {config.lr}, dropout: {config.dropout}\n\n')
 
-    Record.clear()
+    Recorder.clear()
 
-class Record():
-    start_time = None
-    delta_time = 0
-    peak_memorys = []
+class Recorder():
+    phases = []
+    # (str: float)
+    start_time = {}
+    # (str: [float, float, ...])
+    delta_time = {}
+    peak_memory = {}
+
+    epoch_time = {}
+    epoch_peak_memory = {}
 
     @staticmethod
-    def start():
-        # 重置内存统计
-        torch.cuda.reset_peak_memory_stats()
+    def start(phase):
         # 确保所有CUDA操作完成
         torch.cuda.synchronize()
-        Record.start_time = time.time()
-    
+        Recorder.start_time[phase] = time.time()
+
+        if phase not in Recorder.phases:
+            Recorder.phases.append(phase)
+            Recorder.delta_time[phase] = 0
+            Recorder.peak_memory[phase] = 0
+            Recorder.epoch_time[phase] = []
+            Recorder.epoch_peak_memory[phase] = []
+
     @staticmethod
-    def end():
+    def end(phase):
         torch.cuda.synchronize()
-        Record.delta_time += time.time() - Record.start_time
+        delta_time = time.time() - Recorder.start_time[phase]
+        Recorder.delta_time[phase] += delta_time
+        
         peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
-        Record.peak_memorys.append(peak_memory)
+        Recorder.peak_memory[phase] = max(Recorder.peak_memory[phase], peak_memory)
 
     @staticmethod
-    def get_time():
+    def epoch_sum():
+        for phase in Recorder.phases:
+            Recorder.epoch_time[phase].append(Recorder.delta_time[phase])
+            Recorder.delta_time[phase] = 0
+
+            Recorder.epoch_peak_memory[phase].append(Recorder.peak_memory[phase])
+            Recorder.peak_memory[phase] = 0
+        torch.cuda.reset_peak_memory_stats()
+
+    @staticmethod
+    def get_epoch_time(phase):
         # s
-        return Record.delta_time
+        return Recorder.epoch_time[phase][-1]
     
     @staticmethod
-    def get_peak_memory():
-        # MB
-        return Record.peak_memorys[-1]
+    def get_avg_time(phase):
+        # s
+        return sum(Recorder.epoch_time[phase]) / len(Recorder.epoch_time[phase])
 
     @staticmethod
-    def get_avg_peak_memory():
-        return sum(Record.peak_memorys) / len(Record.peak_memorys)
+    def get_epoch_peak_memory(phase):
+        # MB
+        return Recorder.epoch_peak_memory[phase][-1]
+
+    @staticmethod
+    def get_avg_peak_memory(phase):
+        return sum(Recorder.epoch_peak_memory[phase]) / len(Recorder.epoch_peak_memory[phase])
+
+    @staticmethod
+    def get_epoch_record():
+        record = ('-' * 80 + '\n')
+        record += f'{'Phase':<20} {'Time /s':<20} {'Peak Memory /MB':<20}\n'
+        for phase in Recorder.phases:
+            record += f'{phase:<20} {Recorder.get_epoch_time(phase):<20.3f} {Recorder.get_epoch_peak_memory(phase):<20.3f}\n'
+        record += ('-' * 80)
+        return record
+
+    @staticmethod
+    def get_avg_record():
+        record = ('-' * 80 + '\n')
+        record += f'{'Phase':<20} {'Time':<20} {'Peak Memory':<20}\n'
+        for phase in Recorder.phases:
+            record += f'{phase:<20} {Recorder.get_avg_time(phase):<20.3f} {Recorder.get_avg_peak_memory(phase):<20.3f}\n'
+        record += ('-' * 80 + '\n')
+        return record
 
     @staticmethod
     def clear():
-        Record.delta_time = 0
+        Recorder.start_time = {}
+        Recorder.delta_time = {}
+        Recorder.peak_memorys = {}

@@ -108,19 +108,25 @@ class Trainer():
             labels = labels.to(self.device)
 
             # 前向传播
-            # with record_function("forward"):
+            Recorder.start("forward")
             outputs = self.model(inputs)
+            Recorder.end("forward")
             
             # 损失计算
-            # with record_function("criterion"):
+            Recorder.start("criterion")
             loss = self.criterion(outputs, labels)
+            Recorder.end("criterion")
             
             # 反向传播
-            # with record_function("backward"):
+            Recorder.start("backward")
             loss.backward()
+            Recorder.end("backward")
 
+            # 优化
+            Recorder.start("optimizer")
             self.optimizer.zero_grad()
             self.optimizer.step()
+            Recorder.end("optimizer")
             
             total_loss += loss.item()
 
@@ -194,19 +200,24 @@ class Trainer():
             self.current_epoch = epoch
             
             # 训练阶段
-            Record.start()
+            Recorder.start('train')
             # self.prof.start()
             train_loss = self.train_epoch()
             # self.prof.stop()
-            Record.end()
+            Recorder.end('train')
             
             # 验证阶段
+            Recorder.start('test')
             test_loss = self.test()
+            Recorder.end('test')
+
             if test_loss < self.min_loss:
                 self.min_loss = test_loss
 
             # 打印日志
-            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Train Time: {Record.get_time():.3f}s, Peak Memory: {Record.get_peak_memory():.3f}MB.\n')
+            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}.')
+            Recorder.epoch_sum()
+            print(Recorder.get_epoch_record())
             # print(self.prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
         
         write_log(self.config, self.min_loss, self.config.note)
