@@ -28,7 +28,7 @@ class DebugConfig():
 
     # 训练超参数
     seq_len=4
-    epochs=2
+    epochs=5
     batch_size=64
     lr=0.0005
     dropout=0.1
@@ -40,7 +40,7 @@ class Config():
     model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
     
     # 日志
-    note = ''
+    note = 'log: '
 
     # 维度
     d_model=64
@@ -145,11 +145,13 @@ class Recorder():
     @staticmethod
     def get_epoch_record():
         record = ('-' * 80 + '\n')
-        record += f'{'Phase':<10}'
+        word = 'Phase'
+        record += f'{word:<10}'
         for phase in Recorder.phases:
             record += f'{phase:<10}'
 
-        record += f'\n{'Time /s':<10}'
+        word = 'Time /s'
+        record += f'\n{word:<10}'
         for phase in Recorder.phases:
             record += f'{Recorder.get_epoch_time(phase):<10.3f}'
         record += ('\n' + '-' * 80)
@@ -158,14 +160,16 @@ class Recorder():
     @staticmethod
     def get_avg_record():
         record = ('-' * 80 + '\n')
-        record += f'{'Phase':<10}'
+        word = 'Phase'
+        record += f'{word:<10}'
         for phase in Recorder.phases:
             record += f'{phase:<10}'
 
-        record += f'\n{'Time /s':<10}'
+        word = 'Time /s'
+        record += f'\n{word:<10}'
         for phase in Recorder.phases:
             record += f'{Recorder.get_avg_time(phase):<10.3f}'
-        record += ('\n' + '-' * 80)
+        record += ('\n' + '-' * 80 + '\n')
         return record
 
     @staticmethod

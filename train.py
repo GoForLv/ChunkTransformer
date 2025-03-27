@@ -239,12 +239,15 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
-    # print(args)
+    print(args)
 
     if args.debug == True:
         config = DebugConfig()
-        trainer = Trainer(config)
-        trainer.train()
+        config.model_type = args.model_type
+        config.seq_len = args.seq_len
+        for i in range(args.train_count):
+            trainer = Trainer(config)
+            trainer.train()
         exit()
 
     config = Config()
