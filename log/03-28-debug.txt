@@ -1,0 +1,52 @@
+********************************************************************************
+Debug.
+2025-03-28 04:56:34
+model: TorchTransformer, min_loss: 8.1741, peak_memory: 579.039MB
+--------------------------------------------------------------------------------
+Phase     train     forward   criterion backward  optimizer test      
+Time /s   25.358    7.232     0.052     17.469    0.312     0.068     
+--------------------------------------------------------------------------------
+d_model: 16, d_ffn: 32, d_input: 7, d_output: 7
+n_neighbor: 2, d_chunk: 2
+nhead: 2, num_encoder_layers: 6
+seq_len: 1024, epochs: 3, batch_size: 64, lr: 0.0005, dropout: 0.1
+
+********************************************************************************
+Debug.
+2025-03-28 04:59:43
+model: MultiHeadTransformer, min_loss: 7.1913, peak_memory: 8112.438MB
+--------------------------------------------------------------------------------
+Phase     train     forward   criterion backward  optimizer test      
+Time /s   51.218    18.405    0.056     32.057    0.377     0.149     
+--------------------------------------------------------------------------------
+d_model: 16, d_ffn: 32, d_input: 7, d_output: 7
+n_neighbor: 2, d_chunk: 2
+nhead: 2, num_encoder_layers: 6
+seq_len: 1024, epochs: 3, batch_size: 64, lr: 0.0005, dropout: 0.1
+
+********************************************************************************
+Debug.
+2025-03-28 05:03:19
+model: MaskTransformer, min_loss: 8.3231, peak_memory: 8124.438MB
+--------------------------------------------------------------------------------
+Phase     train     forward   criterion backward  optimizer test      
+Time /s   59.987    21.477    0.061     37.720    0.390     0.182     
+--------------------------------------------------------------------------------
+d_model: 16, d_ffn: 32, d_input: 7, d_output: 7
+n_neighbor: 2, d_chunk: 2
+nhead: 2, num_encoder_layers: 6
+seq_len: 1024, epochs: 3, batch_size: 64, lr: 0.0005, dropout: 0.1
+
+********************************************************************************
+Debug.
+2025-03-28 05:04:41
+model: ChunkTransformer, min_loss: 7.6743, peak_memory: 540.055MB
+--------------------------------------------------------------------------------
+Phase     train     forward   criterion backward  optimizer test      
+Time /s   15.861    2.812     0.050     12.342    0.364     0.029     
+--------------------------------------------------------------------------------
+d_model: 16, d_ffn: 32, d_input: 7, d_output: 7
+n_neighbor: 2, d_chunk: 2
+nhead: 2, num_encoder_layers: 6
+seq_len: 1024, epochs: 3, batch_size: 64, lr: 0.0005, dropout: 0.1
+
