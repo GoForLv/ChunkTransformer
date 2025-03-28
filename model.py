@@ -69,7 +69,7 @@ class ChunkAttention(nn.Module):
         return output
 
 class MaskAttention(nn.Module):
-    def __init__(self, d_model, nhead, dropout, n_neighbor, d_chunk, max_len=1024):
+    def __init__(self, d_model, nhead, dropout, n_neighbor, max_len=1024):
         super(MaskAttention, self).__init__()
         self.d_model = d_model
         self.nhead = nhead
@@ -184,7 +184,7 @@ class Encoder(nn.Module):
         if type == 'MultiHeadTransformer':
             self.attn = MultiHeadAttention(d_model, nhead, dropout)
         elif type == 'MaskTransformer':
-            self.attn = MaskAttention(d_model, nhead, dropout, n_neighbor, d_chunk)
+            self.attn = MaskAttention(d_model, nhead, dropout, n_neighbor)
         elif type == 'ChunkTransformer':
             self.attn = ChunkAttention(d_model, nhead, dropout, d_chunk)
         self.ffn = FeedForward(d_model, d_ffn, dropout)

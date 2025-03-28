@@ -50,7 +50,7 @@ class Config():
     d_output=7
 
     # 稀疏注意力超参数
-    n_neighbor=4
+    n_neighbor=64
     d_chunk=8
 
     # 模型超参数
