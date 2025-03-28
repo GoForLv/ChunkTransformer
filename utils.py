@@ -4,17 +4,18 @@ from torch.nn import init
 
 from datetime import datetime
 import time
+import os
 
 class DebugConfig():
-    dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
-    model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
+    dataset='ETT'                     # 'MNIST', 'ETT', 'SELF'
+    model_type='ChunkTransformer'
     
     # 日志
     note = 'Debug.'
 
     # 维度
     d_model=16
-    d_ffn=64
+    d_ffn=32
     d_input=7
     d_output=7
 
@@ -37,7 +38,7 @@ class DebugConfig():
 
 class Config():
     dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
-    model_type='MyTransformer'     # 'MLP', 'LeNet', 'RNN', 'TorchTransformer', 'OriginalTransformer', 'MyTransformer'
+    model_type='ChunkTransformer'
     
     # 日志
     note = 'log: '
@@ -72,8 +73,13 @@ def init_xavier(m):
         if m.bias is not None:
             init.constant_(m.bias, 0)
 
-def write_log(config: Config, min_loss, peak_memory):
-    with open('./log.txt', 'a', encoding='utf-8') as log:
+def write_log(config, min_loss, peak_memory):
+    if type(config) == Config:
+        log_path = os.path.join('log', datetime.now().strftime('%m-%d')+'.txt')
+    elif type(config) == DebugConfig:
+        log_path = os.path.join('log', datetime.now().strftime('%m-%d')+'-debug.txt')
+
+    with open(log_path, 'a', encoding='utf-8') as log:
         log.write('*' * 80 + '\n')
         # 日志
         log.write(config.note + '\n')

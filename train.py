@@ -36,28 +36,6 @@ class Trainer():
             model = LeNet(num_classes=10)
         elif self.config.model_type == 'RNN':
             model = RNN(d_input=self.config.d_input, hidden_size=64, d_output=self.config.d_output)
-        elif self.config.model_type == 'MyTransformer':
-            model = Transformer(d_model=self.config.d_model,
-                                nhead=self.config.nhead,
-                                d_ffn=self.config.d_ffn,
-                                num_encoder_layers=self.config.num_encoder_layers,
-                                d_input=self.config.d_input,
-                                d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                n_neighbor=self.config.n_neighbor,
-                                d_chunk=self.config.d_chunk,
-                                is_original=False)
-        elif self.config.model_type == 'OriginalTransformer':
-            model = Transformer(d_model=self.config.d_model,
-                                nhead=self.config.nhead,
-                                d_ffn=self.config.d_ffn,
-                                num_encoder_layers=self.config.num_encoder_layers,
-                                d_input=self.config.d_input,
-                                d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                n_neighbor=self.config.n_neighbor,
-                                d_chunk=self.config.d_chunk,
-                                is_original=True)
         elif self.config.model_type == 'TorchTransformer':
             model = TorchTransformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
@@ -66,6 +44,39 @@ class Trainer():
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout)
+        elif self.config.model_type == 'MultiHeadTransformer':
+            model = Transformer(d_model=self.config.d_model,
+                                nhead=self.config.nhead,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout,
+                                n_neighbor=self.config.n_neighbor,
+                                d_chunk=self.config.d_chunk,
+                                type='MultiHeadTransformer')
+        elif self.config.model_type == 'MaskTransformer':
+            model = Transformer(d_model=self.config.d_model,
+                                nhead=self.config.nhead,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout,
+                                n_neighbor=self.config.n_neighbor,
+                                d_chunk=self.config.d_chunk,
+                                type='MaskTransformer')
+        elif self.config.model_type == 'ChunkTransformer':
+            model = Transformer(d_model=self.config.d_model,
+                                nhead=self.config.nhead,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout,
+                                n_neighbor=self.config.n_neighbor,
+                                d_chunk=self.config.d_chunk,
+                                type='ChunkTransformer')
         return model
 
     def _dataloader(self):
@@ -233,8 +244,9 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='帮助文档')
 
-    parser.add_argument('--model_type', help='TorchTransformer, OriginalTransformer, MyTransformer')
+    parser.add_argument('--model', help='TorchTransformer, MultiHeadTransformer, MaskTransformer,ChunkTransformer')
     parser.add_argument('--seq_len', type=int, help='')
+    parser.add_argument('--epochs', type=int, help='')
     parser.add_argument('--train_count', type=int, help='')
     parser.add_argument('--debug', action='store_true')
 
@@ -243,16 +255,18 @@ if __name__ == '__main__':
 
     if args.debug == True:
         config = DebugConfig()
-        config.model_type = args.model_type
-        config.seq_len = args.seq_len
-        for i in range(args.train_count):
-            trainer = Trainer(config)
-            trainer.train()
-        exit()
+    else:
+        config = Config()
+    
+    if args.model is not None:
+        config.model_type = args.model
 
-    config = Config()
-    config.model_type = args.model_type
-    config.seq_len = args.seq_len
+    if args.seq_len is not None:
+        config.seq_len = args.seq_len
+    
+    if args.epochs is not None:
+        config.epochs = args.epochs
+    
     for i in range(args.train_count):
         trainer = Trainer(config)
         trainer.train()

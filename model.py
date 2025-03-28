@@ -25,9 +25,9 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
 
-class MyAttention(nn.Module):
-    def __init__(self, d_model, nhead, dropout, n_neighbor, d_chunk, max_len=1024):
-        super(MyAttention, self).__init__()
+class ChunkAttention(nn.Module):
+    def __init__(self, d_model, nhead, dropout, d_chunk):
+        super(ChunkAttention, self).__init__()
         self.d_model = d_model
         self.nhead = nhead
         self.d_k = d_model // nhead
@@ -36,28 +36,7 @@ class MyAttention(nn.Module):
         self.W_V = nn.Linear(d_model, d_model)
         self.W_O = nn.Linear(d_model, d_model)
         self.dropout = nn.Dropout(dropout)
-        # 缓冲区 局部注意力掩码
-        # self.n_neighbor = n_neighbor
-        # self.register_buffer("local_mask", self.create_local_mask(max_len))
-        # 缓冲区 分块注意力掩码
         self.d_chunk = d_chunk
-        # self.register_buffer("chunk_mask", self.create_chunk_mask(max_len))
-    
-    # def create_local_mask(self, max_len):
-    #     """局部注意力掩码"""
-    #     mask = torch.zeros(max_len, max_len, dtype=torch.bool)
-    #     for i in range(max_len):
-    #         start = max(0, i - self.n_neighbor)
-    #         end = min(max_len, i + self.n_neighbor + 1)
-    #         mask[i, start:end] = True
-    #     return mask  # [max_len, max_len]
-
-    # def create_chunk_mask(self, max_len):
-    #     """分块注意力掩码"""
-    #     mask = torch.zeros(max_len, max_len, dtype=torch.bool)
-    #     for i in range(0, max_len, self.d_chunk):
-    #         mask[i:i+self.d_chunk, i:i+self.d_chunk] = True
-    #     return mask  # [max_len, max_len]
 
     def forward(self, q, k, v):
         # (batch_size, seq_len, d_model)
@@ -75,19 +54,64 @@ class MyAttention(nn.Module):
         V = V.view(batch_size, self.nhead, -1, self.d_chunk, self.d_k)
         # (batch_size, nhead, nchunk, d_chunk, d_chunk)
         scaled_dot = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-
-        # 局部注意力稀疏掩码
-        # scaled_dot.masked_fill_(~self.local_mask[:seq_len, :seq_len], float('-inf'))
-        # 分块注意力稀疏掩码
-        # scaled_dot.masked_fill_(~self.chunk_mask[:seq_len, :seq_len], float('-inf'))
-
         attn_weight = torch.softmax(scaled_dot, dim=-1)
         # 注意力权重
         attn_weight = self.dropout(attn_weight)
+        # (batch_size, nhead, nchunk, d_chunk, d_k)
         attn = torch.matmul(attn_weight, V)
         # (batch_size, nhead, seq_len, d_k)
         concat = attn.view(batch_size, self.nhead, -1, self.d_k)
 
+        # (batch_size, seq_len, d_model)
+        concat = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
+        # (batch_size, seq_len, d_model)
+        output = self.W_O(concat)
+        return output
+
+class MaskAttention(nn.Module):
+    def __init__(self, d_model, nhead, dropout, n_neighbor, d_chunk, max_len=1024):
+        super(MaskAttention, self).__init__()
+        self.d_model = d_model
+        self.nhead = nhead
+        self.d_k = d_model // nhead
+        self.W_Q = nn.Linear(d_model, d_model)
+        self.W_K = nn.Linear(d_model, d_model)
+        self.W_V = nn.Linear(d_model, d_model)
+        self.W_O = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+        # 缓冲区 局部注意力掩码
+        self.n_neighbor = n_neighbor
+        self.register_buffer("local_mask", self.create_local_mask(max_len))
+
+    def create_local_mask(self, max_len):
+        """局部注意力掩码"""
+        mask = torch.zeros(max_len, max_len, dtype=torch.bool)
+        for i in range(max_len):
+            start = max(0, i - self.n_neighbor)
+            end = min(max_len, i + self.n_neighbor + 1)
+            mask[i, start:end] = True
+        return mask  # [max_len, max_len]
+
+    def forward(self, q, k, v):
+        # (batch_size, seq_len, d_model)
+        batch_size, seq_len, _ = q.size()
+        # (batch_size, seq_len, d_model)
+        Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
+        # (batch_size, nhead, seq_len, d_k)
+        Q = Q.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
+        K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
+        # (batch_size, nhead, seq_len, seq_len)
+        scaled_dot = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
+
+        # 局部注意力稀疏掩码
+        scaled_dot.masked_fill_(~self.local_mask[:seq_len, :seq_len], float('-inf'))
+
+        attn_weight = torch.softmax(scaled_dot, dim=-1)
+        # 注意力权重
+        attn_weight = self.dropout(attn_weight)
+        # (batch_size, nhead, nchunk, d_chunk, d_k)
+        attn = torch.matmul(attn_weight, V)
         # (batch_size, seq_len, d_model)
         concat = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         # (batch_size, seq_len, d_model)
@@ -155,13 +179,14 @@ class AddNorm(nn.Module):
         return add_norm
 
 class Encoder(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, is_original):
+    def __init__(self, d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, type):
         super(Encoder, self).__init__()
-        if is_original:
+        if type == 'MultiHeadTransformer':
             self.attn = MultiHeadAttention(d_model, nhead, dropout)
-        else:
-            self.attn = MyAttention(d_model, nhead, dropout, n_neighbor, d_chunk)
-
+        elif type == 'MaskTransformer':
+            self.attn = MaskAttention(d_model, nhead, dropout, n_neighbor, d_chunk)
+        elif type == 'ChunkTransformer':
+            self.attn = ChunkAttention(d_model, nhead, dropout, d_chunk)
         self.ffn = FeedForward(d_model, d_ffn, dropout)
         self.add_norm1 = AddNorm(d_model, dropout)
         self.add_norm2 = AddNorm(d_model, dropout)
@@ -175,11 +200,11 @@ class Encoder(nn.Module):
         return x
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, is_original):
+    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, type):
         super(TransformerEncoder, self).__init__()
         self.encoders = nn.Sequential()
         for i in range(num_encoder_layers):
-            self.encoders.add_module('encoder'+str(i), Encoder(d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, is_original))
+            self.encoders.add_module('encoder'+str(i), Encoder(d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, type))
 
     def forward(self, x):
         for encoder in self.encoders:
@@ -187,11 +212,11 @@ class TransformerEncoder(nn.Module):
         return x
 
 class Transformer(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout, n_neighbor, d_chunk, is_original):
+    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout, n_neighbor, d_chunk, type):
         super(Transformer, self).__init__()
         self.embedding = nn.Linear(d_input, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
-        self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, is_original)
+        self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, type)
         self.fc = nn.Linear(d_model, d_output)
 
     def forward(self, x):

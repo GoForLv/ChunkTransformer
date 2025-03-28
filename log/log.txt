@@ -102,7 +102,7 @@ seq_len: 512, epochs: 50, batch_size: 64, lr: 0.0005, dropout: 0.1
 ********************************************************************************
 使用MyTransformer，传统多头注意力作为对照，每批次至少14s。
 2025-03-26 06:19:18
-model: MyTransformer, min_loss: 2.3439, Train Time: 24m8.79s, Attention Time: 26644.610
+model: MyTransformer, min_loss: 2.3439, Train Time: 12m4.43s, Attention Time: 26644.610
 d_model: 64, d_ffn: 256, d_input: 7, d_output: 7
 n_neighbor: 4
 nhead: 8, num_encoder_layers: 6
@@ -111,7 +111,7 @@ seq_len: 512, epochs: 50, batch_size: 64, lr: 0.0005, dropout: 0.1
 ********************************************************************************
 使用MyTransformer，传统多头注意力作为对照，每批次至少14s。
 2025-03-26 06:31:45
-model: MyTransformer, min_loss: 2.2116, Train Time: 36m16.99s, Attention Time: 39938.544
+model: MyTransformer, min_loss: 2.2116, Train Time: 12m8.20s, Attention Time: 39938.544
 d_model: 64, d_ffn: 256, d_input: 7, d_output: 7
 n_neighbor: 4
 nhead: 8, num_encoder_layers: 6
