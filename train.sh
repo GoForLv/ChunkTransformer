@@ -1,9 +1,9 @@
 # Debug
 echo "Debug..."
-# python train.py --model=TorchTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-# python train.py --model=MultiHeadTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-# python train.py --model=MaskTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-# python train.py --model=ChunkTransformer --seq_len=1024 --epochs=10 --train_count=1 --debug
+python train.py --model=TorchTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
+python train.py --model=MultiHeadTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
+python train.py --model=MaskTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
+python train.py --model=ChunkTransformer --seq_len=1024 --epochs=10 --train_count=1 --debug
 
 echo "Data: $1"
 if [ "$1" = "3.27" ]; then
