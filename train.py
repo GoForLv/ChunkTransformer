@@ -247,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', help='TorchTransformer, MultiHeadTransformer, MaskTransformer,ChunkTransformer')
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
+    parser.add_argument('--d_chunk', type=int, help='')
     parser.add_argument('--train_count', type=int, help='')
     parser.add_argument('--debug', action='store_true')
 
@@ -267,6 +268,9 @@ if __name__ == '__main__':
     if args.epochs is not None:
         config.epochs = args.epochs
     
+    if args.d_chunk is not None:
+        config.d_chunk = args.d_chunk
+
     for i in range(args.train_count):
         trainer = Trainer(config)
         trainer.train()
