@@ -113,7 +113,7 @@ class Trainer():
 
     def train_epoch(self):
         self.model.train()
-        total_loss = 0
+        total_loss = 0.0
 
         for inputs, labels in tqdm(self.train_loader, desc=f'train epoch {self.current_epoch+1}'):
             inputs = inputs.to(self.device)
@@ -122,24 +122,25 @@ class Trainer():
             # 前向传播
             Recorder.start("forward")
             outputs = self.model(inputs)
-            Recorder.end("forward")
+            Recorder.pause("forward")
             
             # 损失计算
             Recorder.start("criterion")
             loss = self.criterion(outputs, labels)
-            Recorder.end("criterion")
+            Recorder.pause("criterion")
             
             # 反向传播
             Recorder.start("backward")
             loss.backward()
-            Recorder.end("backward")
+            Recorder.pause("backward")
 
             # 优化
             Recorder.start("optimizer")
             self.optimizer.step()
             self.optimizer.zero_grad()
-            Recorder.end("optimizer")
+            Recorder.pause("optimizer")
             
+            # 批次损失均值 reduction='mean'
             total_loss += loss.item()
 
             # self.prof.step()
@@ -217,22 +218,24 @@ class Trainer():
             # self.prof.start()
             train_loss = self.train_epoch()
             # self.prof.stop()
-            Recorder.end('train')
+            Recorder.pause('train')
             
             # 验证阶段
             Recorder.start('test')
             test_loss = self.test()
-            Recorder.end('test')
+            Recorder.pause('test')
 
             if test_loss < self.min_loss:
                 self.min_loss = test_loss
 
+            # MB
             peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
             self.peak_memory = max(self.peak_memory, peak_memory)
+            
             # 打印日志
             print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
-            Recorder.epoch_sum()
-            print(Recorder.get_epoch_record())
+
+            print(Recorder.display_record('epoch'))
             # print(self.prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
         
         write_log(self.config, self.min_loss, self.peak_memory)
@@ -244,7 +247,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='帮助文档')
 
-    parser.add_argument('--model', help='TorchTransformer, MultiHeadTransformer, MaskTransformer,ChunkTransformer')
+    parser.add_argument('--model', help='TorchTransformer, MultiHeadTransformer, MaskTransformer, ChunkTransformer')
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
     parser.add_argument('--d_chunk', type=int, help='')
@@ -274,3 +277,4 @@ if __name__ == '__main__':
     for i in range(args.train_count):
         trainer = Trainer(config)
         trainer.train()
+

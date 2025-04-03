@@ -9,9 +9,6 @@ import os
 class DebugConfig():
     dataset='ETT'                     # 'MNIST', 'ETT', 'SELF'
     model_type='ChunkTransformer'
-    
-    # 日志
-    note = 'Debug.'
 
     # 维度
     d_model=16
@@ -29,19 +26,16 @@ class DebugConfig():
 
     # 训练超参数
     seq_len=4
-    epochs=5
+    epochs=12
     batch_size=64
     lr=0.0005
     dropout=0.1
 
-    train_percent=0.99
+    train_percent=0.80
 
 class Config():
     dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
     model_type='ChunkTransformer'
-    
-    # 日志
-    note = 'log: '
 
     # 维度
     d_model=64
@@ -64,7 +58,7 @@ class Config():
     lr=0.0005
     dropout=0.1
 
-    train_percent=0.99
+    train_percent=0.80
 
 @torch.no_grad()
 def init_xavier(m):
@@ -73,7 +67,18 @@ def init_xavier(m):
         if m.bias is not None:
             init.constant_(m.bias, 0)
 
+def write_csv_log(config, min_loss, peak_memory):
+    log_path = os.path.join('log', 'log.csv')
+    with open(log_path, 'a', encoding='utf-8') as log:
+        # log.write('model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB\n')
+        log.write(f'{config.model_type},{config.seq_len},{config.d_chunk},\
+                {Recorder.get_avg_time('train')},{Recorder.get_avg_time('forward')},\
+                {Recorder.get_avg_time('criterion')},{Recorder.get_avg_time('backward')},\
+                {Recorder.get_avg_time('optimizer')},{Recorder.get_avg_time('test')},\
+                {min_loss},{peak_memory}\n')
+
 def write_log(config, min_loss, peak_memory):
+    write_csv_log(config, min_loss, peak_memory)
     if type(config) == Config:
         log_path = os.path.join('log', datetime.now().strftime('%m-%d')+'.txt')
     elif type(config) == DebugConfig:
@@ -81,8 +86,6 @@ def write_log(config, min_loss, peak_memory):
 
     with open(log_path, 'a', encoding='utf-8') as log:
         log.write('*' * 80 + '\n')
-        # 日志
-        log.write(config.note + '\n')
 
         formatted_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log.write(formatted_time + '\n')
@@ -91,7 +94,7 @@ def write_log(config, min_loss, peak_memory):
         log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, peak_memory: {peak_memory:.3f}MB\n')
 
         # 时空Cost
-        log.write(Recorder.get_avg_record())
+        log.write(Recorder.display_record('average'))
 
         # 维度
         log.write(f'd_model: {config.d_model}, d_ffn: {config.d_ffn}, d_input: {config.d_input}, d_output: {config.d_output}\n')
@@ -111,8 +114,8 @@ class Recorder():
     phases = []
     # (str: float)
     start_time = {}
-    # (str: [float, float, ...])
     delta_time = {}
+    # (str: [float, float, ...])
     epoch_time = {}
 
     @staticmethod
@@ -127,13 +130,13 @@ class Recorder():
             Recorder.epoch_time[phase] = []
 
     @staticmethod
-    def end(phase):
+    def pause(phase):
         torch.cuda.synchronize()
         delta_time = time.time() - Recorder.start_time[phase]
         Recorder.delta_time[phase] += delta_time
-
+    
     @staticmethod
-    def epoch_sum():
+    def end():
         for phase in Recorder.phases:
             Recorder.epoch_time[phase].append(Recorder.delta_time[phase])
             Recorder.delta_time[phase] = 0
@@ -149,35 +152,36 @@ class Recorder():
         return sum(Recorder.epoch_time[phase]) / len(Recorder.epoch_time[phase])
 
     @staticmethod
-    def get_epoch_record():
+    def _display_record(get_time):
         record = ('-' * 80 + '\n')
         word = 'Phase'
-        record += f'{word:<10}'
+        record += f'{word:<15}'
         for phase in Recorder.phases:
             record += f'{phase:<10}'
 
-        word = 'Time /s'
-        record += f'\n{word:<10}'
+        word = 'Epoch Time /s'
+        record += f'\n{word:<15}'
         for phase in Recorder.phases:
-            record += f'{Recorder.get_epoch_time(phase):<10.3f}'
+            record += f'{get_time(phase):<10.3f}'
         record += ('\n' + '-' * 80)
         return record
 
     @staticmethod
-    def get_avg_record():
-        record = ('-' * 80 + '\n')
-        word = 'Phase'
-        record += f'{word:<10}'
-        for phase in Recorder.phases:
-            record += f'{phase:<10}'
-
-        word = 'Time /s'
-        record += f'\n{word:<10}'
-        for phase in Recorder.phases:
-            record += f'{Recorder.get_avg_time(phase):<10.3f}'
-        record += ('\n' + '-' * 80 + '\n')
-        return record
+    def display_record(type: str):
+        '''
+        param:
+        type: 'epoch', 'average'
+        '''
+        if type == 'epoch':
+            Recorder.end()
+            recorder = Recorder._display_record(Recorder.get_epoch_time)
+        elif type == 'average':
+            recorder = Recorder._display_record(Recorder.get_avg_time)
+        return recorder
 
     @staticmethod
     def clear():
         Recorder.phases = []
+        Recorder.start_time = {}
+        Recorder.delta_time = {}
+        Recorder.epoch_time = {}

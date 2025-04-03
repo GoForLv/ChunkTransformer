@@ -1,0 +1,2 @@
+model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB
+TorchTransformer,128,2,4.599104246,1.274699211,0.067838033,2.703684489,0.325435797,0.329427004,10.9637063,87.7265625
