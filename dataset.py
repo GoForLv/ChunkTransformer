@@ -7,8 +7,8 @@ import os
 
 class Dataset():
     @staticmethod
-    def load_etth1_data(seq_len, train_percent):
-        data_path = os.path.join('data', 'ETT-small', 'ETTh1.csv')
+    def load_ett_data(name, seq_len, train_percent):
+        data_path = os.path.join('data', 'ETT-small', name+'.csv')
         # Index(['date', 'HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'], dtype='object')
         # shape: (17420, 8)
         df = pd.read_csv(data_path)

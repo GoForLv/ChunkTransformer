@@ -84,8 +84,8 @@ class Trainer():
             self.train_dataset, self.test_dataset = Dataset.load_mnist_data()
         elif self.config.dataset == 'SELF':
             self.train_dataset, self.test_dataset = Dataset.load_self_data(seq_len=self.config.seq_len, train_percent=self.config.train_percent)
-        elif self.config.dataset == 'ETT':
-            self.train_dataset, self.test_dataset = Dataset.load_etth1_data(seq_len=self.config.seq_len, train_percent=self.config.train_percent)
+        elif self.config.dataset.startswith('ETT') :
+            self.train_dataset, self.test_dataset = Dataset.load_ett_data(name=self.config.dataset, seq_len=self.config.seq_len, train_percent=self.config.train_percent)
         
         return (
                 DataLoader(self.train_dataset, batch_size=self.config.batch_size, shuffle=True),
@@ -245,8 +245,11 @@ class Trainer():
 
 if __name__ == '__main__':
     import argparse
+    import math
+
     parser = argparse.ArgumentParser(description='帮助文档')
 
+    parser.add_argument('--data', help='ETTh1, ETTh2, ETTm1, ETTm2')
     parser.add_argument('--model', help='TorchTransformer, MultiHeadTransformer, MaskTransformer, ChunkTransformer')
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
@@ -262,6 +265,9 @@ if __name__ == '__main__':
     else:
         config = Config()
     
+    if args.data is not None:
+        config.dataset = args.data
+
     if args.model is not None:
         config.model_type = args.model
 
@@ -271,10 +277,18 @@ if __name__ == '__main__':
     if args.epochs is not None:
         config.epochs = args.epochs
     
-    if args.d_chunk is not None:
+    if args.d_chunk is None:
+        pass
+    elif args.d_chunk == 0:
+        x = int(math.log(args.seq_len, 2))
+        factors = [i for i in range(1, args.seq_len + 1) if args.seq_len % i == 0]
+        for factor in factors:
+            if factor >= x:
+                config.d_chunk = factor
+                break
+    else:
         config.d_chunk = args.d_chunk
 
     for i in range(args.train_count):
         trainer = Trainer(config)
         trainer.train()
-

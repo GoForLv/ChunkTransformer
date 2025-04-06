@@ -1,12 +1,50 @@
 # Debug
 echo "Debug..."
-python train.py --model=TorchTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-python train.py --model=MultiHeadTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-python train.py --model=MaskTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
+# python train.py --model=TorchTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
+python train.py --model=MultiHeadTransformer --seq_len=1024 --epochs=10 --train_count=1 --debug
+python train.py --model=MultiHeadTransformer --seq_len=2048 --epochs=10 --train_count=1 --debug
+# python train.py --model=MaskTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
 python train.py --model=ChunkTransformer --seq_len=1024 --epochs=10 --train_count=1 --debug
+python train.py --model=ChunkTransformer --seq_len=2048 --epochs=10 --train_count=1 --debug
 
 echo "Data: $1"
-if [ "$1" = "3.27" ]; then
+if [ "$1" = "4.6" ]; then
+    python train.py --data=ETTm1 --model=MultiHeadTransformer --seq_len=128 --epochs=50 --train_count=3
+    python train.py --data=ETTm1 --model=MultiHeadTransformer --seq_len=256 --epochs=50 --train_count=3
+    python train.py --data=ETTm1 --model=MultiHeadTransformer --seq_len=512 --epochs=50 --train_count=3
+    python train.py --data=ETTm1 --model=MultiHeadTransformer --seq_len=1024 --epochs=50 --train_count=3
+    python train.py --data=ETTm1 --model=MultiHeadTransformer --seq_len=2048 --epochs=50 --train_count=3
+    python train.py --data=ETTm1 --model=MultiHeadTransformer --seq_len=4096 --epochs=50 --train_count=3
+
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=128 --epochs=50 --d_chunk=16 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=256 --epochs=50 --d_chunk=16 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=512 --epochs=50 --d_chunk=16 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=1024 --epochs=50 --d_chunk=16 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=2048 --epochs=50 --d_chunk=16 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=4096 --epochs=50 --d_chunk=16 --train_count=3
+
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=128 --epochs=50 --d_chunk=32 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=256 --epochs=50 --d_chunk=32 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=512 --epochs=50 --d_chunk=32 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=1024 --epochs=50 --d_chunk=32 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=2048 --epochs=50 --d_chunk=32 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=4096 --epochs=50 --d_chunk=32 --train_count=3
+
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=128 --epochs=50 --d_chunk=64 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=256 --epochs=50 --d_chunk=64 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=512 --epochs=50 --d_chunk=64 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=1024 --epochs=50 --d_chunk=64 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=2048 --epochs=50 --d_chunk=64 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=4096 --epochs=50 --d_chunk=64 --train_count=3
+
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=128 --epochs=50 --d_chunk=0 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=256 --epochs=50 --d_chunk=0 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=512 --epochs=50 --d_chunk=0 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=1024 --epochs=50 --d_chunk=0 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=2048 --epochs=50 --d_chunk=0 --train_count=3
+    python train.py --data=ETTm1 --model=ChunkTransformer --seq_len=4096 --epochs=50 --d_chunk=0 --train_count=3
+
+elif [ "$1" = "3.27" ]; then
     # 3.27 阿里云实验脚本
     python train.py --model=MultiHeadTransformer --seq_len=256 --epochs=50 --train_count=3
     python train.py --model=MultiHeadTransformer --seq_len=512 --epochs=50 --train_count=3

@@ -7,7 +7,7 @@ import time
 import os
 
 class DebugConfig():
-    dataset='ETT'                     # 'MNIST', 'ETT', 'SELF'
+    dataset='ETTh1'                     # 'MNIST', 'ETT', 'SELF'
     model_type='ChunkTransformer'
 
     # 维度
@@ -27,14 +27,14 @@ class DebugConfig():
     # 训练超参数
     seq_len=4
     epochs=12
-    batch_size=64
+    batch_size=128
     lr=0.0005
     dropout=0.1
 
     train_percent=0.80
 
 class Config():
-    dataset='ETT'                  # 'MNIST', 'ETT', 'SELF'
+    dataset='ETTm1'                  # 'MNIST', 'ETT', 'SELF'
     model_type='ChunkTransformer'
 
     # 维度
@@ -54,7 +54,7 @@ class Config():
     # 训练超参数
     seq_len=256
     epochs=50
-    batch_size=64
+    batch_size=128
     lr=0.0005
     dropout=0.1
 
@@ -68,7 +68,7 @@ def init_xavier(m):
             init.constant_(m.bias, 0)
 
 def write_csv_log(config, min_loss, peak_memory):
-    log_path = os.path.join('log', 'log.csv')
+    log_path = os.path.join('csvlog', 'log.csv')
     with open(log_path, 'a', encoding='utf-8') as log:
         # log.write('model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB\n')
         log.write(f'{config.model_type},{config.seq_len},{config.d_chunk},\
@@ -80,9 +80,9 @@ def write_csv_log(config, min_loss, peak_memory):
 def write_log(config, min_loss, peak_memory):
     write_csv_log(config, min_loss, peak_memory)
     if type(config) == Config:
-        log_path = os.path.join('log', datetime.now().strftime('%m-%d')+'.txt')
+        log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'.txt')
     elif type(config) == DebugConfig:
-        log_path = os.path.join('log', datetime.now().strftime('%m-%d')+'-debug.txt')
+        log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'-debug.txt')
 
     with open(log_path, 'a', encoding='utf-8') as log:
         log.write('*' * 80 + '\n')
@@ -163,7 +163,7 @@ class Recorder():
         record += f'\n{word:<15}'
         for phase in Recorder.phases:
             record += f'{get_time(phase):<10.3f}'
-        record += ('\n' + '-' * 80)
+        record += ('\n' + '-' * 80 + '\n')
         return record
 
     @staticmethod
