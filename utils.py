@@ -154,9 +154,9 @@ def write_csv_log(config, min_loss, peak_memory):
                 {min_loss},{peak_memory}\n")
 
 def write_log(config, min_loss, peak_memory):
-    write_csv_log(config, min_loss, peak_memory)
     if type(config) == Config:
         log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'.txt')
+        write_csv_log(config, min_loss, peak_memory)
     elif type(config) == DebugConfig:
         log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'-debug.txt')
 
