@@ -1,5 +1,6 @@
 # 文件
-
+.download.json
+.ipynb_checkpoints
 
 # 目录
 __pycache__
