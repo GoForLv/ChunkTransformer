@@ -1,12 +1,8 @@
 # Debug
 echo "Debug..."
-# python train.py --model=Torch --epochs=1 --batch_size=32
-# python train.py --model=Origin --epochs=1 --batch_size=32
-# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=8
-# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=16
-# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=32
-# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=64
-python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=0 
+python train.py --model=Torch --epochs=30 --batch_size=32
+python train.py --model=Origin --epochs=30 --batch_size=32
+python train.py --model=Chunk --epochs=30 --batch_size=32 --d_chunk=0 
 
 echo "Data: $1"
 if [ "$1" = "4.11"]; then

@@ -288,7 +288,7 @@ if __name__ == '__main__':
     else:
         config.d_chunk = args.d_chunk
 
-    seq_lens = [256 * i for i in range(1, 2)]
+    seq_lens = [256 * i for i in range(1, 17)]
 
     for seq_len in seq_lens:
         config.seq_len = seq_len
