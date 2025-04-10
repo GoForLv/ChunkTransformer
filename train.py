@@ -36,7 +36,7 @@ class Trainer():
             model = LeNet(num_classes=10)
         elif self.config.model_type == 'RNN':
             model = RNN(d_input=self.config.d_input, hidden_size=64, d_output=self.config.d_output)
-        elif self.config.model_type == 'TorchTransformer':
+        elif self.config.model_type == 'Torch':
             model = TorchTransformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -44,7 +44,7 @@ class Trainer():
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout)
-        elif self.config.model_type == 'MultiHeadTransformer':
+        elif self.config.model_type == 'Origin':
             model = Transformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -54,8 +54,8 @@ class Trainer():
                                 dropout=self.config.dropout,
                                 n_neighbor=self.config.n_neighbor,
                                 d_chunk=self.config.d_chunk,
-                                type='MultiHeadTransformer')
-        elif self.config.model_type == 'MaskTransformer':
+                                attn='Origin')
+        elif self.config.model_type == 'Mask':
             model = Transformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -65,8 +65,8 @@ class Trainer():
                                 dropout=self.config.dropout,
                                 n_neighbor=self.config.n_neighbor,
                                 d_chunk=self.config.d_chunk,
-                                type='MaskTransformer')
-        elif self.config.model_type == 'ChunkTransformer':
+                                attn='Mask')
+        elif self.config.model_type == 'Chunk':
             model = Transformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -76,7 +76,7 @@ class Trainer():
                                 dropout=self.config.dropout,
                                 n_neighbor=self.config.n_neighbor,
                                 d_chunk=self.config.d_chunk,
-                                type='ChunkTransformer')
+                                attn='Chunk')
         return model
 
     def _dataloader(self):
@@ -250,20 +250,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='帮助文档')
 
     parser.add_argument('--data', help='ETTh1, ETTh2, ETTm1, ETTm2')
-    parser.add_argument('--model', help='TorchTransformer, MultiHeadTransformer, MaskTransformer, ChunkTransformer')
+    parser.add_argument('--model', help='Torch, Origin, Chunk')
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
+    parser.add_argument('--batch_size', type=int, help='')
     parser.add_argument('--d_chunk', type=int, help='')
-    parser.add_argument('--train_count', type=int, help='')
-    parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
-    print(args)
 
-    if args.debug == True:
-        config = DebugConfig()
-    else:
-        config = Config()
+    config = Config()
     
     if args.data is not None:
         config.dataset = args.data
@@ -276,8 +271,12 @@ if __name__ == '__main__':
     
     if args.epochs is not None:
         config.epochs = args.epochs
-    
-    if args.d_chunk is None:
+
+    if args.batch_size is not None:
+        config.batch_size = args.batch_size
+
+    if args.d_chunk is not None:
+        config.d_chunk = args.d_chunk
         pass
     elif args.d_chunk == 0:
         x = int(math.log(args.seq_len, 2))
@@ -289,6 +288,18 @@ if __name__ == '__main__':
     else:
         config.d_chunk = args.d_chunk
 
-    for i in range(args.train_count):
+    seq_lens = [256 * i for i in range(1, 2)]
+
+    for seq_len in seq_lens:
+        config.seq_len = seq_len
+        if config.d_chunk == 0 and config.model_type == 'Chunk':
+            x = int(math.log(config.seq_len, 2))
+            factors = [i for i in range(1, config.seq_len + 1) if config.seq_len % i == 0]
+            for factor in factors:
+                if factor >= x:
+                    config.d_chunk = factor
+                    break
+
+        config.display()
         trainer = Trainer(config)
         trainer.train()

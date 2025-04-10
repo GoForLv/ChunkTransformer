@@ -179,13 +179,13 @@ class AddNorm(nn.Module):
         return add_norm
 
 class Encoder(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, type):
+    def __init__(self, d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, attn):
         super(Encoder, self).__init__()
-        if type == 'MultiHeadTransformer':
+        if attn == 'Origin':
             self.attn = MultiHeadAttention(d_model, nhead, dropout)
-        elif type == 'MaskTransformer':
+        elif attn == 'Mask':
             self.attn = MaskAttention(d_model, nhead, dropout, n_neighbor)
-        elif type == 'ChunkTransformer':
+        elif attn == 'Chunk':
             self.attn = ChunkAttention(d_model, nhead, dropout, d_chunk)
         self.ffn = FeedForward(d_model, d_ffn, dropout)
         self.add_norm1 = AddNorm(d_model, dropout)
@@ -200,11 +200,11 @@ class Encoder(nn.Module):
         return x
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, type):
+    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, attn):
         super(TransformerEncoder, self).__init__()
         self.encoders = nn.Sequential()
         for i in range(num_encoder_layers):
-            self.encoders.add_module('encoder'+str(i), Encoder(d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, type))
+            self.encoders.add_module('encoder'+str(i), Encoder(d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, attn))
 
     def forward(self, x):
         for encoder in self.encoders:
@@ -212,11 +212,11 @@ class TransformerEncoder(nn.Module):
         return x
 
 class Transformer(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout, n_neighbor, d_chunk, type):
+    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout, n_neighbor, d_chunk, attn):
         super(Transformer, self).__init__()
         self.embedding = nn.Linear(d_input, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
-        self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, type)
+        self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, attn)
         self.fc = nn.Linear(d_model, d_output)
 
     def forward(self, x):

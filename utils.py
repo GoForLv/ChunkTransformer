@@ -6,35 +6,8 @@ from datetime import datetime
 import time
 import os
 
-class DebugConfig():
-    dataset='ETTh1'                     # 'MNIST', 'ETT', 'SELF'
-    model_type='ChunkTransformer'
-
-    # 维度
-    d_model=16
-    d_ffn=32
-    d_input=7
-    d_output=7
-
-    # 稀疏注意力超参数
-    n_neighbor=2
-    d_chunk=2
-
-    # 模型超参数
-    nhead=2
-    num_encoder_layers=6
-
-    # 训练超参数
-    seq_len=4
-    epochs=12
-    batch_size=128
-    lr=0.0005
-    dropout=0.1
-
-    train_percent=0.80
-
 class Config():
-    dataset='ETTm1'                  # 'MNIST', 'ETT', 'SELF'
+    dataset='ETTh1'                  # 'MNIST', 'ETT', 'SELF'
     model_type='ChunkTransformer'
 
     # 维度
@@ -53,12 +26,15 @@ class Config():
 
     # 训练超参数
     seq_len=256
-    epochs=50
-    batch_size=128
-    lr=0.0005
+    epochs=30
+    batch_size=32
+    lr=0.0001
     dropout=0.1
 
-    train_percent=0.80
+    train_percent=0.85
+
+    def display(self):
+        print(f'data={self.dataset}, model={self.model_type}, epochs={self.epochs}, batch_size={self.batch_size}, seq_len={self.seq_len}, d_chunk={self.d_chunk}')
 
 class Recorder():
     phases = []
@@ -154,11 +130,8 @@ def write_csv_log(config, min_loss, peak_memory):
                 {min_loss},{peak_memory}\n")
 
 def write_log(config, min_loss, peak_memory):
-    if type(config) == Config:
-        log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'.txt')
-        write_csv_log(config, min_loss, peak_memory)
-    elif type(config) == DebugConfig:
-        log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'-debug.txt')
+    log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'.txt')
+    write_csv_log(config, min_loss, peak_memory)
 
     with open(log_path, 'a', encoding='utf-8') as log:
         log.write('*' * 80 + '\n')

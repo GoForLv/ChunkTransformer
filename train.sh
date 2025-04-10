@@ -1,14 +1,24 @@
 # Debug
 echo "Debug..."
-python train.py --model=TorchTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-python train.py --model=MultiHeadTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-python train.py --model=MultiHeadTransformer --seq_len=1024 --epochs=10 --train_count=1 --debug
-# python train.py --model=MultiHeadTransformer --seq_len=2048 --epochs=10 --train_count=1 --debug
-# python train.py --model=MaskTransformer --seq_len=512 --epochs=10 --train_count=1 --debug
-python train.py --model=ChunkTransformer --seq_len=1024 --epochs=10 --train_count=1 --debug
-python train.py --model=ChunkTransformer --seq_len=2048 --epochs=10 --train_count=1 --debug
+# python train.py --model=Torch --epochs=1 --batch_size=32
+# python train.py --model=Origin --epochs=1 --batch_size=32
+# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=8
+# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=16
+# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=32
+# python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=64
+python train.py --model=Chunk --epochs=1 --batch_size=32 --d_chunk=0 
 
 echo "Data: $1"
+if [ "$1" = "4.11"]; then
+    python train.py --data=ETTh1 --model=Torch --epochs=30 --batch_size=32
+    python train.py --data=ETTh1 --model=Origin --epochs=30 --batch_size=32
+
+    python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=8 
+    python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=16
+    python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=32
+    python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=64
+    python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=0 
+
 if [ "$1" = "4.9" ]; then
     python train.py --data=ETTh1 --model=TorchTransformer --seq_len=128 --epochs=50 --train_count=3
     python train.py --data=ETTh1 --model=TorchTransformer --seq_len=256 --epochs=50 --train_count=3
