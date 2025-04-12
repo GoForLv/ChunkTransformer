@@ -1,0 +1,48 @@
+********************************************************************************
+2025-04-10 17:22:23
+model: Chunk, min_loss: 2.6880, peak_memory: 343.865MB
+--------------------------------------------------------------------------------
+Phase          train     forward   criterion backward  optimizer test      
+Epoch Time /s  7.974     2.122     0.137     4.512     0.900     0.368     
+--------------------------------------------------------------------------------
+d_model: 64, d_ffn: 256, d_input: 7, d_output: 7
+n_neighbor: 64, d_chunk: 8
+nhead: 8, num_encoder_layers: 6
+seq_len: 256, epochs: 30, batch_size: 32, lr: 0.0001, dropout: 0.1
+
+********************************************************************************
+2025-04-10 17:30:05
+model: Chunk, min_loss: 2.7438, peak_memory: 667.740MB
+--------------------------------------------------------------------------------
+Phase          train     forward   criterion backward  optimizer test      
+Epoch Time /s  14.120    4.035     0.170     8.600     0.948     0.692     
+--------------------------------------------------------------------------------
+d_model: 64, d_ffn: 256, d_input: 7, d_output: 7
+n_neighbor: 64, d_chunk: 8
+nhead: 8, num_encoder_layers: 6
+seq_len: 512, epochs: 30, batch_size: 32, lr: 0.0001, dropout: 0.1
+
+********************************************************************************
+2025-04-10 17:38:59
+model: Chunk, min_loss: 3.0804, peak_memory: 343.865MB
+--------------------------------------------------------------------------------
+Phase          train     forward   criterion backward  optimizer test      
+Epoch Time /s  7.723     2.075     0.118     4.448     0.805     0.359     
+--------------------------------------------------------------------------------
+d_model: 64, d_ffn: 256, d_input: 7, d_output: 7
+n_neighbor: 64, d_chunk: 8
+nhead: 8, num_encoder_layers: 6
+seq_len: 256, epochs: 10, batch_size: 32, lr: 0.0001, dropout: 0.1
+
+********************************************************************************
+2025-04-10 17:41:36
+model: Chunk, min_loss: 3.1746, peak_memory: 715.740MB
+--------------------------------------------------------------------------------
+Phase          train     forward   criterion backward  optimizer test      
+Epoch Time /s  13.287    4.270     0.147     7.673     0.861     0.714     
+--------------------------------------------------------------------------------
+d_model: 64, d_ffn: 256, d_input: 7, d_output: 7
+n_neighbor: 64, d_chunk: 16
+nhead: 8, num_encoder_layers: 6
+seq_len: 512, epochs: 10, batch_size: 32, lr: 0.0001, dropout: 0.1
+

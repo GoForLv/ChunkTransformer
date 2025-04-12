@@ -277,24 +277,16 @@ if __name__ == '__main__':
 
     if args.d_chunk is not None:
         config.d_chunk = args.d_chunk
-        pass
-    elif args.d_chunk == 0:
-        x = int(math.log(args.seq_len, 2))
-        factors = [i for i in range(1, args.seq_len + 1) if args.seq_len % i == 0]
-        for factor in factors:
-            if factor >= x:
-                config.d_chunk = factor
-                break
-    else:
-        config.d_chunk = args.d_chunk
 
-    seq_lens = [256 * i for i in range(1, 17)]
+    seq_lens = [512 * i for i in range(1, 9)]
+    if args.model == 'Torch':
+        seq_lens = [512 * i for i in range(5, 9)]
 
     for seq_len in seq_lens:
         config.seq_len = seq_len
-        if config.d_chunk == 0 and config.model_type == 'Chunk':
-            x = int(math.log(config.seq_len, 2))
-            factors = [i for i in range(1, config.seq_len + 1) if config.seq_len % i == 0]
+        if args.model == 'Chunk' and args.d_chunk == 0:
+            x = int(math.log(seq_len, 2))
+            factors = [i for i in range(1, seq_len + 1) if seq_len % i == 0]
             for factor in factors:
                 if factor >= x:
                     config.d_chunk = factor

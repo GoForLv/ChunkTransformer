@@ -18,7 +18,7 @@ class Config():
 
     # 稀疏注意力超参数
     n_neighbor=64
-    d_chunk=8
+    d_chunk=-1
 
     # 模型超参数
     nhead=8

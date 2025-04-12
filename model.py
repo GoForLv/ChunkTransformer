@@ -4,7 +4,7 @@ from torch import nn
 import math
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=1024):
+    def __init__(self, d_model, dropout=0.1, max_len=4096):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         # (max_len, d_model)
@@ -69,7 +69,7 @@ class ChunkAttention(nn.Module):
         return output
 
 class MaskAttention(nn.Module):
-    def __init__(self, d_model, nhead, dropout, n_neighbor, max_len=1024):
+    def __init__(self, d_model, nhead, dropout, n_neighbor, max_len=4096):
         super(MaskAttention, self).__init__()
         self.d_model = d_model
         self.nhead = nhead

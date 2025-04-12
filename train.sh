@@ -1,11 +1,13 @@
-# Debug
-echo "Debug..."
-python train.py --model=Torch --epochs=30 --batch_size=32
-python train.py --model=Origin --epochs=30 --batch_size=32
-python train.py --model=Chunk --epochs=30 --batch_size=32 --d_chunk=0 
+echo "Date: $1"
 
-echo "Data: $1"
-if [ "$1" = "4.11"]; then
+if [ "$1" = "4.11" ]; then
+    # # Debug
+    # echo "Debug..."
+    # python train.py --data=ETTh1 --model=Torch --epochs=10 --batch_size=32
+    # python train.py --data=ETTh1 --model=Chunk --epochs=10 --batch_size=32 --d_chunk=0 
+
+    # train
+    echo "Train..."
     python train.py --data=ETTh1 --model=Torch --epochs=30 --batch_size=32
     python train.py --data=ETTh1 --model=Origin --epochs=30 --batch_size=32
 
@@ -14,8 +16,7 @@ if [ "$1" = "4.11"]; then
     python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=32
     python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=64
     python train.py --data=ETTh1 --model=Chunk --epochs=30 --batch_size=32 --d_chunk=0 
-
-if [ "$1" = "4.9" ]; then
+elif [ "$1" = "4.9" ]; then
     python train.py --data=ETTh1 --model=TorchTransformer --seq_len=128 --epochs=50 --train_count=3
     python train.py --data=ETTh1 --model=TorchTransformer --seq_len=256 --epochs=50 --train_count=3
     python train.py --data=ETTh1 --model=TorchTransformer --seq_len=512 --epochs=50 --train_count=3
@@ -57,7 +58,6 @@ if [ "$1" = "4.9" ]; then
     python train.py --data=ETTh1 --model=ChunkTransformer --seq_len=1024 --epochs=50 --d_chunk=0 --train_count=3
     python train.py --data=ETTh1 --model=ChunkTransformer --seq_len=2048 --epochs=50 --d_chunk=0 --train_count=3
     python train.py --data=ETTh1 --model=ChunkTransformer --seq_len=4096 --epochs=50 --d_chunk=0 --train_count=3
-
 elif [ "$1" = "3.27" ]; then
     # 3.27 阿里云实验脚本
     python train.py --model=MultiHeadTransformer --seq_len=256 --epochs=50 --train_count=3
