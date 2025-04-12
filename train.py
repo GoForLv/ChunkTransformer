@@ -279,8 +279,7 @@ if __name__ == '__main__':
         config.d_chunk = args.d_chunk
 
     seq_lens = [512 * i for i in range(1, 9)]
-    if args.model == 'Torch':
-        seq_lens = [512 * i for i in range(5, 9)]
+    seq_lens.insert(0, 256)
 
     for seq_len in seq_lens:
         config.seq_len = seq_len
