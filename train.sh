@@ -1,6 +1,16 @@
 echo "Date: $1"
+if [ "$1" = "4.15" ]; then
+    # python train.py --data=ETTh1 --model=Origin --epochs=3 --batch_size=32 --seq_len=128
+    # python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=128
+    # python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=64
+    # python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=32
+    # python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=16
+    # python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=8
+    python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=4
+    python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=2
+    python train.py --data=ETTh1 --model=Chunk --epochs=3 --batch_size=32 --seq_len=128 --d_chunk=1
 
-if [ "$1" = "4.11" ]; then
+elif [ "$1" = "4.11" ]; then
     # # Debug
     # echo "Debug..."
     # python train.py --data=ETTh1 --model=Torch --epochs=10 --batch_size=32

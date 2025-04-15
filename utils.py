@@ -31,7 +31,7 @@ class Config():
     lr=0.0001
     dropout=0.1
 
-    train_percent=0.85
+    train_percent=0.80
 
     def display(self):
         print(f'data={self.dataset}, model={self.model_type}, epochs={self.epochs}, batch_size={self.batch_size}, seq_len={self.seq_len}, d_chunk={self.d_chunk}')
