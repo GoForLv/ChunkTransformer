@@ -28,7 +28,7 @@ class Config():
     seq_len=256
     epochs=30
     batch_size=32
-    lr=0.0001
+    lr=0.0005
     dropout=0.1
 
     train_percent=0.80

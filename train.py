@@ -278,14 +278,16 @@ if __name__ == '__main__':
     if args.d_chunk is not None:
         config.d_chunk = args.d_chunk
 
-    # if args.model == 'Chunk' and args.d_chunk == 0:
-    #     x = int(math.log(seq_len, 2))
-    #     factors = [i for i in range(1, seq_len + 1) if seq_len % i == 0]
-    #     for factor in factors:
-    #         if factor >= x:
-    #             config.d_chunk = factor
-    #             break
-
-    config.display()
-    trainer = Trainer(config)
-    trainer.train()
+    seq_lens = [128, 256, 512, 1024]
+    for seq_len in seq_lens:
+        config.seq_len = seq_len
+        if args.model == 'Chunk' and args.d_chunk == 0:
+            x = int(math.log(seq_len, 2))
+            factors = [i for i in range(1, seq_len + 1) if seq_len % i == 0]
+            for factor in factors:
+                if factor >= x:
+                    config.d_chunk = factor
+                    break
+        config.display()
+        trainer = Trainer(config)
+        trainer.train()
