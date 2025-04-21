@@ -3,15 +3,30 @@ from torch import nn
 
 import math
 
-def softmax(scores: torch.Tensor):
-    '''softmax with improved numerical stability'''
-    scores_max, _ = torch.max(scores, dim=-1, keepdim=True)
+def softmax(scores: torch.Tensor, dim=-1):
+    """Compute softmax with improved numerical stability.
+    
+    Args:
+        scores: Input tensor containing unnormalized scores
+        dim: Dimension along which softmax will be computed (default: -1)
+    
+    Returns:
+        Tensor with same shape as input, with softmax applied along specified dimension
+    """
+    scores_max, _ = torch.max(scores, dim=dim, keepdim=True)
     scores_exp = torch.exp(scores - scores_max)
-    attn = scores_exp / scores_exp.sum(dim=-1, keepdim=True)
+    attn = scores_exp / (scores_exp.sum(dim=dim, keepdim=True) + 1e-10)
     return attn
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=4096):
+    """Inject positional information into input sequences using sine and cosine functions.
+    
+    Args:
+        d_model: Dimension of the model embeddings
+        dropout: Dropout probability
+        max_len: Maximum length of input sequences (default: 4096)
+    """
+    def __init__(self, d_model, dropout, max_len=4096):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         # (max_len, d_model)
@@ -22,110 +37,88 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        # (max_len, 1, d_model)
-        pe = pe.unsqueeze(0).transpose(0, 1)
+        # (1, max_len, d_model)
+        pe = pe.unsqueeze(0)
         # 缓冲区 不更新参数
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # (seq_len, batch_size, d_model)
-        x = x + self.pe[:x.size(0), :]
+        # (batch_size, seq_len, d_model)
+        x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
-class ChunkAttention(nn.Module):
-    def __init__(self, d_model, nhead, dropout, d_chunk):
-        super(ChunkAttention, self).__init__()
+class HierarchicalBlockAttention(nn.Module):
+    """Hierarchical block attention mechanism that processes input in blocks.
+    
+    Args:
+        d_model: Dimension of input embeddings
+        nhead: Number of attention heads
+        dropout: Dropout probability
+        d_block: Size of each processing block
+    """
+    def __init__(self, d_model, nhead, dropout, d_block):
+        super(HierarchicalBlockAttention, self).__init__()
         self.d_model = d_model
         self.nhead = nhead
         self.d_k = d_model // nhead
+        self.d_v = self.d_k
         self.W_Q = nn.Linear(d_model, d_model)
         self.W_K = nn.Linear(d_model, d_model)
         self.W_V = nn.Linear(d_model, d_model)
         self.W_O = nn.Linear(d_model, d_model)
+
+        # Initialize weights, gain adapt to ReLU
+        nn.init.xavier_uniform_(self.W_Q.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_K.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_V.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_O.weight, gain=math.sqrt(2))
+
         self.dropout = nn.Dropout(dropout)
-        self.d_chunk = d_chunk
+        self.d_block = d_block
 
     def forward(self, q, k, v):
         # (batch_size, seq_len, d_model)
         batch_size, seq_len, _ = q.size()
         # (batch_size, seq_len, d_model)
         Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
+
         # (batch_size, nhead, seq_len, d_k)
         Q = Q.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
         K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        V = V.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, seq_len, self.nhead, self.d_v).transpose(1, 2)
 
-        # 分块后: (batch_size, nhead, nchunk, d_chunk, d_k)
-        Q = Q.view(batch_size, self.nhead, -1, self.d_chunk, self.d_k)
-        K = K.view(batch_size, self.nhead, -1, self.d_chunk, self.d_k)
-        V = V.view(batch_size, self.nhead, -1, self.d_chunk, self.d_k)
-        # (batch_size, nhead, nchunk, d_chunk, d_chunk)
-        scaled_dot = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        attn_weight = torch.softmax(scaled_dot, dim=-1)
-        # 注意力权重
+        assert seq_len % self.d_block == 0, "Sequence length must be divisible by block size"
+
+        # 分块后: (batch_size, nhead, nblock, d_block, d_k)
+        Q = Q.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
+        K = K.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
+        V = V.view(batch_size, self.nhead, -1, self.d_block, self.d_v)
+        # (batch_size, nhead, nblock, d_block, d_block)
+        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
+        attn_weight = softmax(scores)
+
+        # Apply dropout
         attn_weight = self.dropout(attn_weight)
-        # (batch_size, nhead, nchunk, d_chunk, d_k)
+
+        # (batch_size, nhead, nblock, d_block, d_v)
         attn = torch.matmul(attn_weight, V)
-        # (batch_size, nhead, seq_len, d_k)
-        concat = attn.view(batch_size, self.nhead, -1, self.d_k)
+        # (batch_size, nhead, seq_len, d_v)
+        concat = attn.view(batch_size, self.nhead, -1, self.d_v)
 
         # (batch_size, seq_len, d_model)
-        concat = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
-        # (batch_size, seq_len, d_model)
-        output = self.W_O(concat)
-        return output
-
-class MaskAttention(nn.Module):
-    def __init__(self, d_model, nhead, dropout, n_neighbor, max_len=4096):
-        super(MaskAttention, self).__init__()
-        self.d_model = d_model
-        self.nhead = nhead
-        self.d_k = d_model // nhead
-        self.W_Q = nn.Linear(d_model, d_model)
-        self.W_K = nn.Linear(d_model, d_model)
-        self.W_V = nn.Linear(d_model, d_model)
-        self.W_O = nn.Linear(d_model, d_model)
-        self.dropout = nn.Dropout(dropout)
-        # 缓冲区 局部注意力掩码
-        self.n_neighbor = n_neighbor
-        self.register_buffer("local_mask", self.create_local_mask(max_len))
-
-    def create_local_mask(self, max_len):
-        """局部注意力掩码"""
-        mask = torch.zeros(max_len, max_len, dtype=torch.bool)
-        for i in range(max_len):
-            start = max(0, i - self.n_neighbor)
-            end = min(max_len, i + self.n_neighbor + 1)
-            mask[i, start:end] = True
-        return mask  # [max_len, max_len]
-
-    def forward(self, q, k, v):
-        # (batch_size, seq_len, d_model)
-        batch_size, seq_len, _ = q.size()
-        # (batch_size, seq_len, d_model)
-        Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
-        # (batch_size, nhead, seq_len, d_k)
-        Q = Q.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        V = V.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        # (batch_size, nhead, seq_len, seq_len)
-        scaled_dot = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-
-        # 局部注意力稀疏掩码
-        scaled_dot.masked_fill_(~self.local_mask[:seq_len, :seq_len], float('-inf'))
-
-        attn_weight = torch.softmax(scaled_dot, dim=-1)
-        # 注意力权重
-        attn_weight = self.dropout(attn_weight)
-        # (batch_size, nhead, nchunk, d_chunk, d_k)
-        attn = torch.matmul(attn_weight, V)
-        # (batch_size, seq_len, d_model)
-        concat = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
+        concat = concat.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         # (batch_size, seq_len, d_model)
         output = self.W_O(concat)
         return output
 
 class MultiHeadAttention(nn.Module):
+    """Standard multi-head attention mechanism.
+    
+    Args:
+        d_model: Dimension of input embeddings
+        nhead: Number of attention heads
+        dropout: Dropout probability
+    """
     def __init__(self, d_model, nhead, dropout):
         super(MultiHeadAttention, self).__init__()
         self.d_model = d_model
@@ -137,17 +130,11 @@ class MultiHeadAttention(nn.Module):
         self.W_V = nn.Linear(d_model, d_model)
         self.W_O = nn.Linear(d_model, d_model)
 
-        # Layer normalization
-        self.norm_q = nn.LayerNorm(d_model)
-        self.norm_k = nn.LayerNorm(d_model)
-        self.norm_v = nn.LayerNorm(d_model)
-        self.norm_o = nn.LayerNorm(d_model)
-
         # Initialize weights, gain adapt to ReLU
-        nn.init.xavier_uniform_(self.W_Q.weight, gain=1/math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_K.weight, gain=1/math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_V.weight, gain=1/math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_O.weight, gain=1/math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_Q.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_K.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_V.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_O.weight, gain=math.sqrt(2))
     
         self.dropout = nn.Dropout(dropout)
     
@@ -155,7 +142,6 @@ class MultiHeadAttention(nn.Module):
         # (batch_size, seq_len, d_model)
         batch_size = q.size(0)
         # (batch_size, seq_len, d_model)
-        q, k, v = self.norm_q(q), self.norm_k(k), self.norm_v(v)
         Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
 
         # (batch_size, nhead, seq_len, d_k)
@@ -164,15 +150,14 @@ class MultiHeadAttention(nn.Module):
         V = V.view(batch_size, -1, self.nhead, self.d_v).transpose(1, 2)
         # (batch_size, nhead, seq_len, seq_len)
         scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
-        attn = softmax(scores)
+        attn_weight = softmax(scores)
 
         # Apply dropout
-        attn = self.dropout(attn)
-        # Clip attention weights for stability
-        attn = torch.clamp(attn, min=1e-9, max=1.0)
+        attn_weight = self.dropout(attn_weight)
 
         # (batch_size, nhead, seq_len, d_v)
-        attn = torch.matmul(attn, V)
+        attn = torch.matmul(attn_weight, V)
+
         # (batch_size, seq_len, d_model)
         concat = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         # (batch_size, seq_len, d_model)
@@ -180,10 +165,22 @@ class MultiHeadAttention(nn.Module):
         return output
 
 class FeedForward(nn.Module):
+    """Position-wise feed forward network with ReLU activation.
+    
+    Args:
+        d_model: Dimension of input and output
+        d_ffn: Dimension of hidden layer
+        dropout: Dropout probability
+    """
     def __init__(self, d_model, d_ffn, dropout):
         super(FeedForward, self).__init__()
         self.fc1 = nn.Linear(d_model, d_ffn)
         self.fc2 = nn.Linear(d_ffn, d_model)
+    
+        # Initialize weights
+        nn.init.xavier_uniform_(self.fc1.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.fc2.weight, gain=math.sqrt(2))
+
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -194,44 +191,39 @@ class FeedForward(nn.Module):
         x = self.fc2(x)
         return x
 
-class AddNorm(nn.Module):
-    def __init__(self, d_model, dropout):
-        super(AddNorm, self).__init__()
-        self.norm = nn.LayerNorm(d_model)
+class TransformerEncoderLayer(nn.Module):
+    """Single layer of Transformer encoder with either standard or hierarchical attention."""
+    def __init__(self, d_model, nhead, d_ffn, dropout, d_block, attn):
+        super(TransformerEncoderLayer, self).__init__()
+        if attn == 'Base':
+            self.attn = MultiHeadAttention(d_model, nhead, dropout)
+        elif attn == 'HBA':
+            self.attn = HierarchicalBlockAttention(d_model, nhead, dropout, d_block)
+        self.ffn = FeedForward(d_model, d_ffn, dropout)
+        # two SubLayerNorm：一个用于注意力后，一个用于FFN后
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, y):
-        # 残差连接
-        add_norm = self.norm(x + self.dropout(y))
-        return add_norm
-
-class Encoder(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, attn):
-        super(Encoder, self).__init__()
-        if attn == 'Origin':
-            self.attn = MultiHeadAttention(d_model, nhead, dropout)
-        elif attn == 'Mask':
-            self.attn = MaskAttention(d_model, nhead, dropout, n_neighbor)
-        elif attn == 'Chunk':
-            self.attn = ChunkAttention(d_model, nhead, dropout, d_chunk)
-        self.ffn = FeedForward(d_model, d_ffn, dropout)
-        self.add_norm1 = AddNorm(d_model, dropout)
-        self.add_norm2 = AddNorm(d_model, dropout)
-
     def forward(self, x):
-        attn = self.attn(x, x, x)
-        x = self.add_norm1(x, attn)
+        # Pre-LN: SubLayer(x) = x + Dropout(Sublayer(LayerNorm(x)))
+        x_norm1 = self.norm1(x)
+        attn = self.attn(x_norm1, x_norm1, x_norm1)
+        x = x + self.dropout(attn)
 
-        ffn = self.ffn(x)
-        x = self.add_norm2(x, ffn)
+        x_norm2 = self.norm2(x)
+        ffn = self.ffn(x_norm2)
+        x = x + self.dropout(ffn)
         return x
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, attn):
+    """Stack of Transformer encoder layers."""
+    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, dropout, d_block, attn):
         super(TransformerEncoder, self).__init__()
-        self.encoders = nn.Sequential()
+        self.encoders = nn.ModuleList()
         for i in range(num_encoder_layers):
-            self.encoders.add_module('encoder'+str(i), Encoder(d_model, nhead, d_ffn, dropout, n_neighbor, d_chunk, attn))
+            self.encoders.add_module('encoder'+str(i),
+                                     TransformerEncoderLayer(d_model, nhead, d_ffn, dropout, d_block, attn))
 
     def forward(self, x):
         for encoder in self.encoders:
@@ -239,122 +231,52 @@ class TransformerEncoder(nn.Module):
         return x
 
 class Transformer(nn.Module):
-    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout, n_neighbor, d_chunk, attn):
+    """Complete Transformer model with custom implementation."""
+    def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout, d_block, attn):
         super(Transformer, self).__init__()
         self.embedding = nn.Linear(d_input, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
-        self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, n_neighbor, d_chunk, attn)
-        self.fc = nn.Linear(d_model, d_output)
+        self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, d_block, attn)
+        self.out = nn.Linear(d_model, d_output)
+
+        # Initialize weights
+        nn.init.normal_(self.embedding.weight, mean=0, std=0.02)
+        nn.init.normal_(self.out.weight, mean=0, std=0.02)
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
         x
         # (batch_size, seq_len, d_model)
         x = self.embedding(x)
-        x = self.pos_encoder(x.transpose(0, 1)).transpose(0, 1)
+        x = self.pos_encoder(x)
         output = self.transformer_encoder(x)
         # (batch_size, d_model)
         output = output[:, -1, :]
-        # (batch_size, d_output)w
-        output = self.fc(output)
+        # (batch_size, d_output)
+        output = self.out(output)
         return output
 
 class TorchTransformer(nn.Module):
+    """Transformer model using PyTorch's built-in components."""
     def __init__(self, d_model, nhead, d_ffn, num_encoder_layers, d_input, d_output, dropout):
         super(TorchTransformer, self).__init__()
         self.embedding = nn.Linear(d_input, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
-        encoder_layer = nn.TransformerEncoderLayer(d_model, nhead, d_ffn, dropout)
+        encoder_layer = nn.TransformerEncoderLayer(d_model, nhead, d_ffn, dropout, batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
-        self.fc = nn.Linear(d_model, d_output)
-
-    def forward(self, src):
-        # src形状: (batch_size, seq_len, d_input)
-        src = self.embedding(src)  # (batch_size, seq_len, d_model)
-        src = src.permute(1, 0, 2)  # (seq_len, batch_size, d_model)
-        src = self.pos_encoder(src)
-        output = self.transformer_encoder(src)  # (seq_len, batch_size, d_model)
-        output = output[-1]  # 取最后一个时间步的输出 (batch_size, d_model)
-        output = self.fc(output)  # (batch_size, pred_len)
-        return output
-
-class RNN(nn.Module):
-    '''
-    A simple RNN.
-    '''
-    def __init__(self, d_input, hidden_size, d_output, num_layers=1):
-        super().__init__()
-        self.rnn = nn.RNN(input_size=d_input,
-                        hidden_size=hidden_size,
-                        num_layers=num_layers,
-                        batch_first=True)
-        self.fc1 = nn.Linear(hidden_size, d_output)
+        self.out = nn.Linear(d_model, d_output)
     
-    def forward(self, x):
-        # (batch_size, num_steps, input_size)
-        x
-        # (batch_size, num_steps, hidden_size)
-        h, _ = self.rnn(x, )
-        # (batch_size, hidden_size)
-        last_h = h[:, -1, :]
-        # (batch_size, output_size)
-        o = self.fc1(last_h)
-        return o
-
-class MLP(nn.Module):
-    '''
-    Multi-Layer Perception
-    '''
-    def __init__(self, in_dim, out_dim):
-        super().__init__()
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(in_dim, 512)
-        self.fc2 = nn.Linear(512, 64)
-        self.fc3 = nn.Linear(64, out_dim)
+        # Initialize weights
+        nn.init.normal_(self.embedding.weight, mean=0, std=0.02)
+        nn.init.normal_(self.out.weight, mean=0, std=0.02)
 
     def forward(self, x):
-        x = self.flatten(x)
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-class LeNet(nn.Module):
-    '''
-    LeNet-5
-    use ReLU instead of Sigmoid to avoid the gradient explosion or vanishing
-    when weights are inited not properly.
-    '''
-    def __init__(self, num_classes):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 6, kernel_size=5, padding=2)
-        self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
-        self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, num_classes)
-
-    def forward(self, x):
-        # 1 * (28 * 28)
-        x
-        # 6 * (28 * 28)
-        x = torch.relu(self.conv1(x))
-        # 6 * (14 * 14)
-        x = self.maxpool1(x)
-        # 16 * (10 * 10)
-        x = torch.relu(self.conv2(x))
-        # 16 * (5 * 5)
-        x = self.maxpool2(x)
-        # 16 * 5 * 5 = 400
-        x = self.flatten(x)
-        # 120
-        x = torch.relu(self.fc1(x))
-        # 84
-        x = torch.relu(self.fc2(x))
-        # 10
-        x = self.fc3(x)
-        return x
-
+        # src形状: (batch_size, seq_len, d_input)
+        x = self.embedding(x)  # (batch_size, seq_len, d_model)
+        x = self.pos_encoder(x)
+        output = self.transformer_encoder(x)
+        # (batch_size, d_model)
+        output = output[:, -1, :]
+        # (batch_size, d_output)
+        output = self.out(output)
+        return output

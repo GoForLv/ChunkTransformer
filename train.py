@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from dataset import Dataset
 from utils import *
-from model import MLP, LeNet, RNN, Transformer, TorchTransformer
+from model import Transformer, TorchTransformer
 
 import torch
 from torch import nn
@@ -29,14 +29,7 @@ class Trainer():
         self.peak_memory = 0
 
     def _model(self):
-        if self.config.model_type == 'MLP':
-            # model = MLP(in_dim=80, out_dim=1)
-            model = MLP(in_dim=1 * 28 * 28, out_dim=10)
-        elif self.config.model_type == 'LeNet':
-            model = LeNet(num_classes=10)
-        elif self.config.model_type == 'RNN':
-            model = RNN(d_input=self.config.d_input, hidden_size=64, d_output=self.config.d_output)
-        elif self.config.model_type == 'Torch':
+        if self.config.model_type == 'Torch':
             model = TorchTransformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -44,7 +37,7 @@ class Trainer():
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout)
-        elif self.config.model_type == 'Origin':
+        elif self.config.model_type == 'Base':
             model = Transformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -52,10 +45,9 @@ class Trainer():
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout,
-                                n_neighbor=self.config.n_neighbor,
-                                d_chunk=self.config.d_chunk,
-                                attn='Origin')
-        elif self.config.model_type == 'Mask':
+                                d_block=self.config.d_block,
+                                attn='Base')
+        elif self.config.model_type == 'HBA':
             model = Transformer(d_model=self.config.d_model,
                                 nhead=self.config.nhead,
                                 d_ffn=self.config.d_ffn,
@@ -63,20 +55,8 @@ class Trainer():
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout,
-                                n_neighbor=self.config.n_neighbor,
-                                d_chunk=self.config.d_chunk,
-                                attn='Mask')
-        elif self.config.model_type == 'Chunk':
-            model = Transformer(d_model=self.config.d_model,
-                                nhead=self.config.nhead,
-                                d_ffn=self.config.d_ffn,
-                                num_encoder_layers=self.config.num_encoder_layers,
-                                d_input=self.config.d_input,
-                                d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                n_neighbor=self.config.n_neighbor,
-                                d_chunk=self.config.d_chunk,
-                                attn='Chunk')
+                                d_block=self.config.d_block,
+                                attn='HBA')
         return model
 
     def _dataloader(self):
@@ -254,7 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
     parser.add_argument('--batch_size', type=int, help='')
-    parser.add_argument('--d_chunk', type=int, help='')
+    parser.add_argument('--d_block', type=int, help='')
 
     args = parser.parse_args()
 
@@ -275,18 +255,18 @@ if __name__ == '__main__':
     if args.batch_size is not None:
         config.batch_size = args.batch_size
 
-    if args.d_chunk is not None:
-        config.d_chunk = args.d_chunk
+    if args.d_block is not None:
+        config.d_block = args.d_block
 
-    seq_lens = [128, 256, 512, 1024]
+    seq_lens = [128]
     for seq_len in seq_lens:
         config.seq_len = seq_len
-        if args.model == 'Chunk' and args.d_chunk == 0:
+        if args.model == 'Chunk' and args.d_block == 0:
             x = int(math.log(seq_len, 2))
             factors = [i for i in range(1, seq_len + 1) if seq_len % i == 0]
             for factor in factors:
                 if factor >= x:
-                    config.d_chunk = factor
+                    config.d_block = factor
                     break
         config.display()
         trainer = Trainer(config)

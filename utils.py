@@ -7,8 +7,8 @@ import time
 import os
 
 class Config():
-    dataset='ETTh1'                  # 'MNIST', 'ETT', 'SELF'
-    model_type='Origin'
+    dataset='ETTh1'
+    model_type='HBA'
 
     # 维度
     d_model=64
@@ -17,8 +17,7 @@ class Config():
     d_output=7
 
     # 稀疏注意力超参数
-    n_neighbor=64
-    d_chunk=-1
+    d_block=-1
 
     # 模型超参数
     nhead=8
@@ -34,7 +33,7 @@ class Config():
     train_percent=0.80
 
     def display(self):
-        print(f'data={self.dataset}, model={self.model_type}, epochs={self.epochs}, batch_size={self.batch_size}, seq_len={self.seq_len}, d_chunk={self.d_chunk}')
+        print(f'data={self.dataset}, model={self.model_type}, epochs={self.epochs}, batch_size={self.batch_size}, seq_len={self.seq_len}, d_block={self.d_block}')
 
 class Recorder():
     phases = []
@@ -112,18 +111,11 @@ class Recorder():
         Recorder.delta_time = {}
         Recorder.epoch_time = {}
 
-@torch.no_grad()
-def init_xavier(m):
-    if type(m) == nn.Linear or type(m) == nn.Conv2d:
-        init.xavier_normal_(m.weight)
-        if m.bias is not None:
-            init.constant_(m.bias, 0)
-
 def write_csv_log(config, min_loss, peak_memory):
     log_path = os.path.join('csvlog', 'log.csv')
     with open(log_path, 'a', encoding='utf-8') as log:
         # log.write('model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB\n')
-        log.write(f"{config.model_type},{config.seq_len},{config.d_chunk},\
+        log.write(f"{config.model_type},{config.seq_len},{config.d_block},\
                 {Recorder.get_avg_time('train')},{Recorder.get_avg_time('forward')},\
                 {Recorder.get_avg_time('criterion')},{Recorder.get_avg_time('backward')},\
                 {Recorder.get_avg_time('optimizer')},{Recorder.get_avg_time('test')},\
@@ -149,7 +141,7 @@ def write_log(config, min_loss, peak_memory):
         log.write(f'd_model: {config.d_model}, d_ffn: {config.d_ffn}, d_input: {config.d_input}, d_output: {config.d_output}\n')
         
         # 稀疏注意力超参数
-        log.write(f'n_neighbor: {config.n_neighbor}, d_chunk: {config.d_chunk}\n')
+        log.write(f'd_block: {config.d_block}\n')
 
         # 模型超参数
         log.write(f'nhead: {config.nhead}, num_encoder_layers: {config.num_encoder_layers}\n')
