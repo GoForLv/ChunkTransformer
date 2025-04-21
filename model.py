@@ -242,11 +242,12 @@ class Transformer(nn.Module):
         nn.init.normal_(self.out.weight, mean=0, std=0.02)
 
         self.d_block = d_block
+        self.attn = attn
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
         origin_seq_len = x.size(1)
-        if origin_seq_len % self.d_block != 0:
+        if origin_seq_len % self.d_block != 0 and self.attn == 'HBA':
             pad_len = self.d_block - (origin_seq_len % self.d_block)
             x = nn.functional.pad(x, (0, pad_len, 0), value=0)
 

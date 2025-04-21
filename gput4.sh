@@ -17,12 +17,8 @@ date
 
 echo "Train..."
 python train.py --data=ETTh1 --model=Torch --epochs=50 --batch_size=32
-python train.py --data=ETTh1 --model=Origin --epochs=50 --batch_size=32
-
-python train.py --data=ETTh1 --model=Chunk --epochs=50 --batch_size=32 --d_chunk=8
-python train.py --data=ETTh1 --model=Chunk --epochs=50 --batch_size=32 --d_chunk=16
-python train.py --data=ETTh1 --model=Chunk --epochs=50 --batch_size=32 --d_chunk=32
-python train.py --data=ETTh1 --model=Chunk --epochs=50 --batch_size=32 --d_chunk=64
-python train.py --data=ETTh1 --model=Chunk --epochs=50 --batch_size=32 --d_chunk=0
+python train.py --data=ETTh1 --model=Base --epochs=50 --batch_size=32
+python train.py --data=ETTh1 --model=HBA --epochs=50 --batch_size=32 --d_block=8
+python train.py --data=ETTh1 --model=HBA --epochs=50 --batch_size=32 --d_block=0
 
 date

@@ -112,7 +112,7 @@ class Recorder():
         Recorder.epoch_time = {}
 
 def write_csv_log(config, min_loss, peak_memory):
-    log_path = os.path.join('csvlog', 'log.csv')
+    log_path = os.path.join('csvlog', 'hpc.csv')
     with open(log_path, 'a', encoding='utf-8') as log:
         # log.write('model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB\n')
         log.write(f"{config.model_type},{config.seq_len},{config.d_block},"

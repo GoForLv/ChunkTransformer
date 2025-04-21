@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from dataset import Dataset
+from dataset import load_ett_data, load_mnist_data
 from utils import *
 from model import Transformer, TorchTransformer
 
@@ -20,7 +20,7 @@ class Trainer():
         self.train_loader, self.test_loader = self._dataloader()
         self.optimizer = self._optimizer()
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
+            self.optimizer, mode='min', factor=0.1, patience=3
         )
         self.criterion = self._criterion()
 
@@ -62,11 +62,9 @@ class Trainer():
 
     def _dataloader(self):
         if self.config.dataset == 'MNIST':
-            self.train_dataset, self.test_dataset = Dataset.load_mnist_data()
-        elif self.config.dataset == 'SELF':
-            self.train_dataset, self.test_dataset = Dataset.load_self_data(seq_len=self.config.seq_len, train_percent=self.config.train_percent)
+            self.train_dataset, self.test_dataset = load_mnist_data()
         elif self.config.dataset.startswith('ETT') :
-            self.train_dataset, self.test_dataset = Dataset.load_ett_data(name=self.config.dataset, seq_len=self.config.seq_len, train_percent=self.config.train_percent)
+            self.train_dataset, self.test_dataset = load_ett_data(name=self.config.dataset, seq_len=self.config.seq_len, train_percent=self.config.train_percent)
         
         return (
                 DataLoader(self.train_dataset, batch_size=self.config.batch_size, shuffle=True),
@@ -235,7 +233,10 @@ if __name__ == '__main__':
     if args.seq_len is not None:
         config.seq_len = args.seq_len
         if args.model == 'HBA' and args.d_block == 0:
-            config.d_block = int(math.log(args.seq_len, 2))
+            d_block = int(math.log(args.seq_len, 2))
+            if d_block % 2 != 0:
+                d_block += 1
+            config.d_block = d_block
 
         config.display()
         trainer = Trainer(config)
