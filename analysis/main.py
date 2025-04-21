@@ -132,14 +132,14 @@ def visualize(processor):
                 ax.plot(
                     seq_len[:nsamples],
                     processor.data[model][phase][:nsamples],
-                    label=model,
+                    label='HBA' if model == 'HBA_8' else model,
                     marker='o',
                 )
             else:
                 ax.scatter(
                     seq_len[:nsamples],
                     processor.data[model][phase][:nsamples],
-                    label='HBA' if model == 'HBA_8' else model,
+                    label=model,
                     marker='o',
                 )
                 ax.plot(
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     # models = ['Base', 'Torch', 'HBA_16']
 
     # 新数据 所有模型对比
-    models = ['Base', 'Torch', 'HBA_8']
+    # models = ['Base', 'Torch', 'HBA_8']
     # models = ['Base', 'Torch', 'HBA', 'HBA_8', 'HBA_16', 'HBA_32', 'HBA_64']
 
     # 验证加速比
@@ -195,7 +195,7 @@ if __name__ == '__main__':
                 processor.add(*row[0:3], *data)
 
     # processor.process('Origin', 'Chunk0', 'Chunk0/Origin')
-    for phase in ['min_loss', 'fake_loss']:
+    for phase in ['min_loss']:
         processor.process('Base', 'HBA_8', 'HBA_8/Base', m=8, phase=phase)
         processor.process('Base', 'Torch', 'Torch/Base', m=8, phase=phase)
 
@@ -206,4 +206,4 @@ if __name__ == '__main__':
     # processor.process('Origin', 'Chunk32', 'Chunk32/Origin')
     # processor.process('Origin', 'Chunk64', 'Chunk64/Origin')
     # processor.get()
-    visualize(processor)
+    # visualize(processor)

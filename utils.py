@@ -8,7 +8,7 @@ import os
 
 class Config():
     dataset='ETTh1'                  # 'MNIST', 'ETT', 'SELF'
-    model_type='ChunkTransformer'
+    model_type='Origin'
 
     # 维度
     d_model=64

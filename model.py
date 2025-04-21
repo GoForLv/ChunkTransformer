@@ -3,6 +3,13 @@ from torch import nn
 
 import math
 
+def softmax(scores: torch.Tensor):
+    '''softmax with improved numerical stability'''
+    scores_max, _ = torch.max(scores, dim=-1, keepdim=True)
+    scores_exp = torch.exp(scores - scores_max)
+    attn = scores_exp / scores_exp.sum(dim=-1, keepdim=True)
+    return attn
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=4096):
         super(PositionalEncoding, self).__init__()
@@ -124,28 +131,48 @@ class MultiHeadAttention(nn.Module):
         self.d_model = d_model
         self.nhead = nhead
         self.d_k = d_model // nhead
+        self.d_v = self.d_k
         self.W_Q = nn.Linear(d_model, d_model)
         self.W_K = nn.Linear(d_model, d_model)
         self.W_V = nn.Linear(d_model, d_model)
         self.W_O = nn.Linear(d_model, d_model)
+
+        # Layer normalization
+        self.norm_q = nn.LayerNorm(d_model)
+        self.norm_k = nn.LayerNorm(d_model)
+        self.norm_v = nn.LayerNorm(d_model)
+        self.norm_o = nn.LayerNorm(d_model)
+
+        # Initialize weights, gain adapt to ReLU
+        nn.init.xavier_uniform_(self.W_Q.weight, gain=1/math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_K.weight, gain=1/math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_V.weight, gain=1/math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_O.weight, gain=1/math.sqrt(2))
+    
         self.dropout = nn.Dropout(dropout)
     
     def forward(self, q, k, v):
         # (batch_size, seq_len, d_model)
         batch_size = q.size(0)
         # (batch_size, seq_len, d_model)
+        q, k, v = self.norm_q(q), self.norm_k(k), self.norm_v(v)
         Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
+
         # (batch_size, nhead, seq_len, d_k)
         Q = Q.view(batch_size, -1, self.nhead, self.d_k).transpose(1, 2)
         K = K.view(batch_size, -1, self.nhead, self.d_k).transpose(1, 2)
-        V = V.view(batch_size, -1, self.nhead, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, -1, self.nhead, self.d_v).transpose(1, 2)
         # (batch_size, nhead, seq_len, seq_len)
-        scaled_dot = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        attn_weight = torch.softmax(scaled_dot, dim=-1)
-        # 注意力权重
-        attn_weight = self.dropout(attn_weight)
-        # (batch_size, nhead, seq_len, d_k)
-        attn = torch.matmul(attn_weight, V)
+        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
+        attn = softmax(scores)
+
+        # Apply dropout
+        attn = self.dropout(attn)
+        # Clip attention weights for stability
+        attn = torch.clamp(attn, min=1e-9, max=1.0)
+
+        # (batch_size, nhead, seq_len, d_v)
+        attn = torch.matmul(attn, V)
         # (batch_size, seq_len, d_model)
         concat = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         # (batch_size, seq_len, d_model)
