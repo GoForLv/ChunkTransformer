@@ -2,8 +2,8 @@
 #SBATCH -J pytorch_test
 #SBATCH -p gpu
 #SBATCH -n 1
-#SBATCH -o %j.out
-#SBATCH -e %j.err
+#SBATCH -o main.out
+#SBATCH -e main.err
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=6

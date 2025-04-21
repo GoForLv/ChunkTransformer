@@ -29,6 +29,10 @@ class Trainer():
         self.min_loss = 1e9
         self.peak_memory = 0
 
+        # 早停
+        self.early_stop_patience = 6
+        self.no_improve_epochs = 0
+
     def _model(self):
         if self.config.model_type == 'Torch':
             model = TorchTransformer(d_model=self.config.d_model,
@@ -183,6 +187,9 @@ class Trainer():
 
             if test_loss < self.min_loss:
                 self.min_loss = test_loss
+                self.no_improve_epochs = 0
+            else:
+                self.no_improve_epochs += 1
 
             # MB
             peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
@@ -190,8 +197,11 @@ class Trainer():
             
             # 打印日志
             print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
-
             print(Recorder.display_record('epoch'))
+
+            if self.no_improve_epochs >= self.early_stop_patience:
+                print(f'Early stopping at epoch {epoch+1}...')
+                break
 
         write_log(self.config, self.min_loss, self.peak_memory)
 

@@ -246,10 +246,12 @@ class Transformer(nn.Module):
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
-        origin_seq_len = x.size(1)
-        if origin_seq_len % self.d_block != 0 and self.attn == 'HBA':
-            pad_len = self.d_block - (origin_seq_len % self.d_block)
-            x = nn.functional.pad(x, (0, pad_len, 0), value=0)
+        if self.attn == 'HBA':
+            origin_seq_len = x.size(1)
+            if origin_seq_len % self.d_block != 0:
+                pad_len = self.d_block - (origin_seq_len % self.d_block)
+                x = nn.functional.pad(x, (0, pad_len, 0), value=0)
+                # x = torch.cat([x, x[:, -pad_len:, :]], dim=1)  # 重复末尾数据而非补零
 
         # (batch_size, seq_len, d_model)
         x = self.embedding(x)
