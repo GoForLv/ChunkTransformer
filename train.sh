@@ -3,7 +3,7 @@ if [ "$1" = "4.21" ]; then
     echo "Train..."
     # python train.py --data=ETTh1 --model=Torch --epochs=1 --batch_size=32
     # python train.py --data=ETTh1 --model=Base --epochs=1 --batch_size=32
-    python train.py --data=ETTh1 --model=HBA --epochs=1 --batch_size=32 --d_block=0
+    python train.py --data=ETTh1 --model=HBA --epochs=1 --batch_size=32 --d_block=8
 
 elif [ "$1" = "4.16" ]; then
     echo "Train..."

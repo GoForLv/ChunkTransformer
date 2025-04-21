@@ -17,7 +17,7 @@ class Config():
     d_output=7
 
     # 稀疏注意力超参数
-    d_block=-1
+    d_block=8
 
     # 模型超参数
     nhead=8
@@ -115,11 +115,11 @@ def write_csv_log(config, min_loss, peak_memory):
     log_path = os.path.join('csvlog', 'log.csv')
     with open(log_path, 'a', encoding='utf-8') as log:
         # log.write('model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB\n')
-        log.write(f"{config.model_type},{config.seq_len},{config.d_block},\
-                {Recorder.get_avg_time('train')},{Recorder.get_avg_time('forward')},\
-                {Recorder.get_avg_time('criterion')},{Recorder.get_avg_time('backward')},\
-                {Recorder.get_avg_time('optimizer')},{Recorder.get_avg_time('test')},\
-                {min_loss},{peak_memory}\n")
+        log.write(f"{config.model_type},{config.seq_len},{config.d_block},"
+                f"{Recorder.get_avg_time('train')},{Recorder.get_avg_time('forward')},"
+                f"{Recorder.get_avg_time('criterion')},{Recorder.get_avg_time('backward')},"
+                f"{Recorder.get_avg_time('optimizer')},{Recorder.get_avg_time('test')},"
+                f"{min_loss},{peak_memory}\n")
 
 def write_log(config, min_loss, peak_memory):
     log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'.txt')

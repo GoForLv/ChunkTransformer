@@ -87,8 +87,6 @@ class HierarchicalBlockAttention(nn.Module):
         K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
         V = V.view(batch_size, seq_len, self.nhead, self.d_v).transpose(1, 2)
 
-        assert seq_len % self.d_block == 0, "Sequence length must be divisible by block size"
-
         # 分块后: (batch_size, nhead, nblock, d_block, d_k)
         Q = Q.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
         K = K.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
@@ -243,9 +241,15 @@ class Transformer(nn.Module):
         nn.init.normal_(self.embedding.weight, mean=0, std=0.02)
         nn.init.normal_(self.out.weight, mean=0, std=0.02)
 
+        self.d_block = d_block
+
     def forward(self, x):
         # (batch_size, seq_len, d_input)
-        x
+        origin_seq_len = x.size(1)
+        if origin_seq_len % self.d_block != 0:
+            pad_len = self.d_block - (origin_seq_len % self.d_block)
+            x = nn.functional.pad(x, (0, pad_len, 0), value=0)
+
         # (batch_size, seq_len, d_model)
         x = self.embedding(x)
         x = self.pos_encoder(x)

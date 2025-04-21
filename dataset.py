@@ -10,7 +10,7 @@ class Dataset():
     def load_ett_data(name, seq_len, train_percent):
         data_path = os.path.join('data', 'ETT-small', name+'.csv')
         # Index(['date', 'HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'], dtype='object')
-        # shape: (17420, 8)
+        # shape: (num_samples, 8)
         df = pd.read_csv(data_path)
         data = torch.tensor(df[['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT']].values, dtype=torch.float32)
 
@@ -18,10 +18,10 @@ class Dataset():
         seq_data = []
         for i in range(num_samples - seq_len):
             seq_data.append(data[i: i + seq_len + 1].tolist())
-        # 17390 * 31 * 7
+        # (num_samples - seq_len) * (seq_len + 1) * 7
         seq_data = torch.tensor(seq_data)
         num_seq_data, _ = len(seq_data), len(seq_data[0])
-        # 17216
+
         num_train = int(num_seq_data * train_percent)
 
         seq_train = seq_data[: num_train]

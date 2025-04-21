@@ -8,7 +8,6 @@ from model import Transformer, TorchTransformer
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from torch.profiler import profile, record_function, ProfilerActivity
 
 class Trainer():
     def __init__(self, config):
@@ -20,8 +19,10 @@ class Trainer():
         self.model = self._model().to(self.device)
         self.train_loader, self.test_loader = self._dataloader()
         self.optimizer = self._optimizer()
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
+        )
         self.criterion = self._criterion()
-        # self.prof = self._profiler()
 
         # 训练状态
         self.current_epoch = 0
@@ -79,17 +80,9 @@ class Trainer():
     def _optimizer(self):
         # return torch.optim.SGD(params=self.model.parameters(),
         #                        lr=self.config.lr)
-        return torch.optim.Adam(params=self.model.parameters(), lr=self.config.lr)
-
-    def _profiler(self):
-        return profile(
-                    record_shapes=True,   # 记录张量形状
-                    profile_memory=True,  # 分析内存使用
-                    with_stack=True,      # 记录调用栈
-                    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],          # 分析 CPU 和 GPU
-                    on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs'), # 保存到 ./logs, 以使用TensorBoard
-                    # schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2), # 采样策略
-                )
+        return torch.optim.Adam(params=self.model.parameters(),
+                                lr=self.config.lr,
+                                weight_decay=1e-4)
 
     def train_epoch(self):
         self.model.train()
@@ -123,36 +116,23 @@ class Trainer():
             # 批次损失均值 reduction='mean'
             total_loss += loss.item()
 
-            # self.prof.step()
-
         return total_loss / len(self.train_loader)
 
     def test(self):
         self.model.eval()
         test_loss = 0.0
-        
-        for inputs, labels in self.test_loader:
-            inputs = inputs.to(self.device)
-            labels = labels.to(self.device)
-            
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs, labels)
-            
-            test_loss += loss.item()
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
+                
+                outputs = self.model(inputs)
+                loss = self.criterion(outputs, labels)
+                
+                test_loss += loss.item()
 
+        self.scheduler.step(test_loss)
         return test_loss / len(self.test_loader)
-
-    # def save_checkpoint(self, is_best=False):
-    #     state = {
-    #         "epoch": self.current_epoch,
-    #         "state_dict": self.model.state_dict(),
-    #         "optimizer": self.optimizer.state_dict(),
-    #         "best_acc": self.best_acc
-    #     }
-        
-    #     torch.save(state, os.path.join(self.config.save_dir, "train.txt"))
-    #     if is_best:
-    #         torch.save(state, os.path.join(self.config.save_dir, "best.txt"))
 
     def visualize(self):
         '''
@@ -195,9 +175,7 @@ class Trainer():
             
             # 训练阶段
             Recorder.start('train')
-            # self.prof.start()
             train_loss = self.train_epoch()
-            # self.prof.stop()
             Recorder.pause('train')
             
             # 验证阶段
@@ -216,8 +194,7 @@ class Trainer():
             print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
 
             print(Recorder.display_record('epoch'))
-            # print(self.prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
-        
+
         write_log(self.config, self.min_loss, self.peak_memory)
 
         # 可视化
@@ -230,7 +207,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='帮助文档')
 
     parser.add_argument('--data', help='ETTh1, ETTh2, ETTm1, ETTm2')
-    parser.add_argument('--model', help='Torch, Origin, Chunk')
+    parser.add_argument('--model', help='Torch, Base, HBA')
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
     parser.add_argument('--batch_size', type=int, help='')
@@ -246,9 +223,6 @@ if __name__ == '__main__':
     if args.model is not None:
         config.model_type = args.model
 
-    if args.seq_len is not None:
-        config.seq_len = args.seq_len
-    
     if args.epochs is not None:
         config.epochs = args.epochs
 
@@ -258,16 +232,24 @@ if __name__ == '__main__':
     if args.d_block is not None:
         config.d_block = args.d_block
 
-    seq_lens = [128]
-    for seq_len in seq_lens:
-        config.seq_len = seq_len
-        if args.model == 'Chunk' and args.d_block == 0:
-            x = int(math.log(seq_len, 2))
-            factors = [i for i in range(1, seq_len + 1) if seq_len % i == 0]
-            for factor in factors:
-                if factor >= x:
-                    config.d_block = factor
-                    break
+    if args.seq_len is not None:
+        config.seq_len = args.seq_len
+        if args.model == 'HBA' and args.d_block == 0:
+            config.d_block = int(math.log(args.seq_len, 2))
+
         config.display()
         trainer = Trainer(config)
         trainer.train()
+    else:
+        seq_lens = [128, 256, 512, 1024]
+        for seq_len in seq_lens:
+            config.seq_len = seq_len
+            if args.model == 'HBA' and args.d_block == 0:
+                d_block = int(math.log(seq_len, 2))
+                if d_block % 2 != 0:
+                    d_block += 1
+                config.d_block = d_block
+
+            config.display()
+            trainer = Trainer(config)
+            trainer.train()
