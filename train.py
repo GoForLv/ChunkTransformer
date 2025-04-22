@@ -20,7 +20,7 @@ class Trainer():
         self.train_loader, self.test_loader = self._dataloader()
         self.optimizer = self._optimizer()
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.1, patience=3
+            self.optimizer, mode='min', factor=0.1, patience=5, verbose=True
         )
         self.criterion = self._criterion()
 
@@ -30,7 +30,7 @@ class Trainer():
         self.peak_memory = 0
 
         # 早停
-        self.early_stop_patience = 6
+        self.early_stop_patience = 8
         self.no_improve_epochs = 0
 
     def _model(self):
@@ -107,6 +107,8 @@ class Trainer():
             # 反向传播
             Recorder.start("backward")
             loss.backward()
+            # 梯度裁剪 避免梯度爆炸
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             Recorder.pause("backward")
 
             # 优化
@@ -133,7 +135,6 @@ class Trainer():
                 
                 test_loss += loss.item()
 
-        self.scheduler.step(test_loss)
         return test_loss / len(self.test_loader)
 
     def visualize(self):
@@ -185,6 +186,8 @@ class Trainer():
             test_loss = self.test()
             Recorder.pause('test')
 
+            self.scheduler.step(test_loss)
+
             if test_loss < self.min_loss:
                 self.min_loss = test_loss
                 self.no_improve_epochs = 0
@@ -210,7 +213,6 @@ class Trainer():
 
 if __name__ == '__main__':
     import argparse
-    import math
 
     parser = argparse.ArgumentParser(description='帮助文档')
 
@@ -242,11 +244,8 @@ if __name__ == '__main__':
 
     if args.seq_len is not None:
         config.seq_len = args.seq_len
-        if args.model == 'HBA' and args.d_block == 0:
-            d_block = int(math.log(args.seq_len, 2))
-            if d_block % 2 != 0:
-                d_block += 1
-            config.d_block = d_block
+        # if args.model == 'HBA' and args.d_block == 0:
+        #     config.d_block = int(math.log(args.seq_len, 2))
 
         config.display()
         trainer = Trainer(config)
@@ -255,11 +254,8 @@ if __name__ == '__main__':
         seq_lens = [128, 256, 512, 1024]
         for seq_len in seq_lens:
             config.seq_len = seq_len
-            if args.model == 'HBA' and args.d_block == 0:
-                d_block = int(math.log(seq_len, 2))
-                if d_block % 2 != 0:
-                    d_block += 1
-                config.d_block = d_block
+            # if config.model_type == 'HBA' and config.d_block == 0:
+            #     config.d_block = int(math.log(seq_len, 2))
 
             config.display()
             trainer = Trainer(config)

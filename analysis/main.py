@@ -16,15 +16,16 @@ class DataProcessor():
             'test': [],
             'min_loss': [],
             'peak_memory': [],
-            'fake_loss': []
         }
         self.data = {}
         self.models = models
         self.phases = list(self.phases_dict.keys())
+        self.phases.remove('criterion')
+        self.phases.remove('optimizer')
         for model in models:
             self.data[model] = copy.deepcopy(self.phases_dict)
     
-    def add(self, model, seq_len, d_chunk, train, forward, criterion, backward, optimizer, test, min_loss, peak_memory, fake_loss):
+    def add(self, model, seq_len, d_chunk, train, forward, criterion, backward, optimizer, test, min_loss, peak_memory):
         if model not in self.models:
             return
         self.data[model]['train'].append(train)
@@ -35,7 +36,6 @@ class DataProcessor():
         self.data[model]['test'].append(test)
         self.data[model]['min_loss'].append(min_loss)
         self.data[model]['peak_memory'].append(peak_memory)
-        self.data[model]['fake_loss'].append(fake_loss)
 
     def get(self):
         for model in self.models:
@@ -111,12 +111,10 @@ def polyfit(x: list, y: list, n: int) -> list:
 
 def visualize(processor):
     seq_len = [128, 256, 512, 1024]
-    # processor.phases = ['train', 'forward', 'backward', 'test']
-    processor.phases = ['peak_memory', 'min_loss', 'fake_loss']
     num_phases = len(processor.phases)
 
     ncols = 2
-    nrows = 2
+    nrows = num_phases // 2
     _, axes = plt.subplots(
         nrows=nrows,
         ncols=ncols,
@@ -125,7 +123,7 @@ def visualize(processor):
         sharex=False
     )
     for idx, phase in enumerate(processor.phases):
-        ax = axes[idx%ncols][idx//ncols]
+        ax = axes[idx//ncols][idx%ncols]
         for model in processor.models:
             nsamples = min(len(seq_len), len(processor.data[model][phase]))
             if phase == 'min_loss' or 'fake_loss':
@@ -163,14 +161,14 @@ if __name__ == '__main__':
     # models = ['Base', 'Torch', 'HBA_16']
 
     # 新数据 所有模型对比
-    # models = ['Base', 'Torch', 'HBA_8']
+    models = ['Base', 'Torch', 'HBA']
     # models = ['Base', 'Torch', 'HBA', 'HBA_8', 'HBA_16', 'HBA_32', 'HBA_64']
 
     # 验证加速比
-    models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
+    # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('csvlog\log.csv', 'r', encoding='utf-8') as csvfile:
+    with open('csvlog\hpc1.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:
@@ -185,8 +183,8 @@ if __name__ == '__main__':
                 processor.add(*row[0:3], *data)
         else:
             # new
-            start_line = 96 - 1
-            end_line = 130
+            start_line = 2 - 1
+            end_line = 13
             # 逐行读取
             for row_idx in range(start_line, end_line):
                 row = csv_reader[row_idx]
@@ -195,9 +193,9 @@ if __name__ == '__main__':
                 processor.add(*row[0:3], *data)
 
     # processor.process('Origin', 'Chunk0', 'Chunk0/Origin')
-    for phase in ['min_loss']:
-        processor.process('Base', 'HBA_8', 'HBA_8/Base', m=8, phase=phase)
-        processor.process('Base', 'Torch', 'Torch/Base', m=8, phase=phase)
+    # for phase in ['min_loss']:
+    #     processor.process('Base', 'HBA_8', 'HBA_8/Base', m=8, phase=phase)
+    #     processor.process('Base', 'Torch', 'Torch/Base', m=8, phase=phase)
 
     # for phase in ['train', 'forward', 'backward', 'test', 'peak_memory', 'min_loss']:
     #     processor.process('Base', 'Torch', 'Torch/Base', m=8, phase=phase)
@@ -205,5 +203,5 @@ if __name__ == '__main__':
     # processor.process('Origin', 'Chunk16', 'Chunk16/Origin')
     # processor.process('Origin', 'Chunk32', 'Chunk32/Origin')
     # processor.process('Origin', 'Chunk64', 'Chunk64/Origin')
-    # processor.get()
-    # visualize(processor)
+    processor.get()
+    visualize(processor)

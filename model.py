@@ -26,7 +26,7 @@ class PositionalEncoding(nn.Module):
         dropout: Dropout probability
         max_len: Maximum length of input sequences (default: 4096)
     """
-    def __init__(self, d_model, dropout, max_len=4096):
+    def __init__(self, d_model, dropout, max_len=1024):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         # (max_len, d_model)
@@ -43,8 +43,10 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
+        assert self.pe.size(1) >= x.size(1), 'max_len < seq_len!'
+        
         # (batch_size, seq_len, d_model)
-        x = x + self.pe[:, :x.size(1)]
+        x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
 
 class HierarchicalBlockAttention(nn.Module):
@@ -245,16 +247,11 @@ class Transformer(nn.Module):
         self.attn = attn
 
     def forward(self, x):
-        # (batch_size, seq_len, d_input)
-        if self.attn == 'HBA':
-            origin_seq_len = x.size(1)
-            if origin_seq_len % self.d_block != 0:
-                pad_len = self.d_block - (origin_seq_len % self.d_block)
-                x = nn.functional.pad(x, (0, pad_len, 0), value=0)
-                # x = torch.cat([x, x[:, -pad_len:, :]], dim=1)  # 重复末尾数据而非补零
+        assert x.size(1) % self.d_block == 0, 'seq_len can not divided by d_block!'
 
-        # (batch_size, seq_len, d_model)
+        # (batch_size, seq_len, d_input)
         x = self.embedding(x)
+        # (batch_size, seq_len, d_model)
         x = self.pos_encoder(x)
         output = self.transformer_encoder(x)
         # (batch_size, d_model)

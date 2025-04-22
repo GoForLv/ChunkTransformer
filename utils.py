@@ -27,7 +27,7 @@ class Config():
     seq_len=256
     epochs=30
     batch_size=32
-    lr=0.0005
+    lr=0.01
     dropout=0.1
 
     train_percent=0.80
@@ -74,7 +74,7 @@ class Recorder():
     @staticmethod
     def get_avg_time(phase):
         # s
-        return sum(Recorder.epoch_time[phase][3:]) / len(Recorder.epoch_time[phase][3:])
+        return sum(Recorder.epoch_time[phase][5:]) / len(Recorder.epoch_time[phase][5:])
 
     @staticmethod
     def _display_record(get_time):

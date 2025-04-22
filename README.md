@@ -2,8 +2,8 @@
 
 ### Todo List
 1. 划分验证集
-2. 数据归一化
-3. 学习率调度器位置？学习率调度器在验证损失没有改善时也会更新学习率
+3. 数据归一化
+4. 学习率调度器位置？学习率调度器在验证损失没有改善时也会更新学习率
 ```python
 def test(self):
     # ... 现有代码 ...
@@ -15,8 +15,15 @@ def test(self):
         self.no_improve_epochs += 1
     # ... 其余代码 ...
 ```
-4. d_block整除问题
-5. 梯度裁剪 可能导致梯度爆炸
+1. 模型保存
+2. 类型提示和文档完善
+3. 加入多级Pooling
+4. 增加对比模型
+
+### Over List
+1. d_block整除问题 --> `Quit`
+
+2. 梯度裁剪 可能导致梯度爆炸
 ```python
 def train_epoch(self):
     # ... 现有代码 ...
@@ -26,7 +33,5 @@ def train_epoch(self):
     self.optimizer.zero_grad()
     # ... 其余代码 ...
 ```
-6. 模型保存
-7. 类型提示和文档完善
-8. 加入多级Pooling
-9.  增加对比模型
+
+3. 学习率预热 --> `舍弃warmup数据`
