@@ -74,7 +74,7 @@ class Recorder():
     @staticmethod
     def get_avg_time(phase):
         # s
-        return sum(Recorder.epoch_time[phase]) / len(Recorder.epoch_time[phase])
+        return sum(Recorder.epoch_time[phase][3:]) / len(Recorder.epoch_time[phase][3:])
 
     @staticmethod
     def _display_record(get_time):
