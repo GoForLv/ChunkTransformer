@@ -17,10 +17,10 @@ class Trainer():
 
         # 初始化组件
         self.model = self._model().to(self.device)
-        self.train_loader, self.test_loader = self._dataloader()
+        self.train_loader, self.val_loader, self.test_loader, self.scaler_mean, self.scaler_std = self._dataloader()
         self.optimizer = self._optimizer()
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.1, patience=5, verbose=True
+            self.optimizer, mode='min', factor=0.1, patience=5
         )
         self.criterion = self._criterion()
 
@@ -66,13 +66,20 @@ class Trainer():
 
     def _dataloader(self):
         if self.config.dataset == 'MNIST':
-            self.train_dataset, self.test_dataset = load_mnist_data()
-        elif self.config.dataset.startswith('ETT') :
-            self.train_dataset, self.test_dataset = load_ett_data(name=self.config.dataset, seq_len=self.config.seq_len, train_percent=self.config.train_percent)
+            train_dataset, test_dataset = load_mnist_data()
+            val_dataset = test_dataset
+        elif self.config.dataset.startswith('ETT'):
+            train_dataset, val_dataset, test_dataset, mean, std = load_ett_data(
+                name=self.config.dataset,
+                seq_len=self.config.seq_len,
+                train_ratio=self.config.train_ratio,
+                val_ratio=self.config.val_ratio)
         
         return (
-                DataLoader(self.train_dataset, batch_size=self.config.batch_size, shuffle=True),
-                DataLoader(self.test_dataset, batch_size=self.config.batch_size, shuffle=False)
+                DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True),
+                DataLoader(val_dataset, batch_size=self.config.batch_size, shuffle=False),
+                DataLoader(test_dataset, batch_size=self.config.batch_size, shuffle=False),
+                mean, std
                 )
 
     def _criterion(self):
@@ -122,6 +129,26 @@ class Trainer():
 
         return total_loss / len(self.train_loader)
 
+    def validate(self):
+        self.model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for inputs, labels in self.val_loader:
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
+                
+                outputs = self.model(inputs)
+
+                loss = self.criterion(outputs, labels)
+                
+                val_loss += loss.item()
+
+        return val_loss / len(self.val_loader)
+
+    # 反归一化
+    def denormalize(self, data):
+        return data * self.scaler_std + self.scaler_mean
+
     def test(self):
         self.model.eval()
         test_loss = 0.0
@@ -131,15 +158,29 @@ class Trainer():
                 labels = labels.to(self.device)
                 
                 outputs = self.model(inputs)
-                loss = self.criterion(outputs, labels)
+
+                origin_labels = self.denormalize(labels)
+                origin_outputs = self.denormalize(outputs)
+
+                loss = self.criterion(origin_outputs, origin_labels)
                 
                 test_loss += loss.item()
 
         return test_loss / len(self.test_loader)
 
+    def early_stop(self, val_loss):
+        if val_loss < self.min_loss:
+            self.min_loss = val_loss
+            self.no_improve_epochs = 0
+        else:
+            self.no_improve_epochs += 1
+        
+        return self.no_improve_epochs >= self.early_stop_patience
+
     def visualize(self):
         '''
         multivariate多特征时序预测可视化
+        Todo: add denormalize.
         '''
         inputs, labels = self.test_dataset.tensors
         inputs = inputs.to(self.device)
@@ -182,29 +223,24 @@ class Trainer():
             Recorder.pause('train')
             
             # 验证阶段
-            Recorder.start('test')
-            test_loss = self.test()
-            Recorder.pause('test')
+            Recorder.start('validate')
+            val_loss = self.validate()
+            Recorder.pause('validate')
 
-            self.scheduler.step(test_loss)
-
-            if test_loss < self.min_loss:
-                self.min_loss = test_loss
-                self.no_improve_epochs = 0
-            else:
-                self.no_improve_epochs += 1
+            self.scheduler.step(val_loss)
 
             # MB
             peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
             self.peak_memory = max(self.peak_memory, peak_memory)
-            
-            # 打印日志
-            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
-            print(Recorder.display_record('epoch'))
 
-            if self.no_improve_epochs >= self.early_stop_patience:
+            # 早停判断
+            if self.early_stop(val_loss=val_loss):
                 print(f'Early stopping at epoch {epoch+1}...')
                 break
+
+            # 打印日志
+            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
+            print(Recorder.display_record('epoch'))
 
         write_log(self.config, self.min_loss, self.peak_memory)
 

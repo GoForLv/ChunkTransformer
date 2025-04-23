@@ -7,30 +7,40 @@ import time
 import os
 
 class Config():
-    dataset='ETTh1'
-    model_type='HBA'
+    def __init__(self):
+        # 数据集配置
+        self.dataset: str = 'ETTh1'
+        self.model_type: str = 'HBA'  # ['Torch', 'Base', 'HBA']
+        
+        # 模型维度配置
+        self.d_model: int = 64
+        self.d_ffn: int = 256
+        self.d_input: int = 7
+        self.d_output: int = 7
+        
+        # 训练配置
+        self.seq_len: int = 256
+        self.epochs: int = 30
+        self.batch_size: int = 32
+        self.lr: float = 0.01
+        self.dropout: float = 0.1
 
-    # 维度
-    d_model=64
-    d_ffn=256
-    d_input=7
-    d_output=7
+        # 数据集分割
+        self.train_ratio: float = 0.6
+        self.val_ratio: float = 0.2
 
-    # 稀疏注意力超参数
-    d_block=8
+        # 稀疏注意力超参数
+        self.d_block=8
 
-    # 模型超参数
-    nhead=8
-    num_encoder_layers=6
+        # 模型超参数
+        self.nhead=8
+        self.num_encoder_layers=6
 
-    # 训练超参数
-    seq_len=256
-    epochs=30
-    batch_size=32
-    lr=0.01
-    dropout=0.1
-
-    train_percent=0.80
+        # 验证参数合法性
+        self._validate()
+    
+    def _validate(self):
+        pass
 
     def display(self):
         print(f'data={self.dataset}, model={self.model_type}, epochs={self.epochs}, batch_size={self.batch_size}, seq_len={self.seq_len}, d_block={self.d_block}')

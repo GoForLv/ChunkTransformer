@@ -247,8 +247,6 @@ class Transformer(nn.Module):
         self.attn = attn
 
     def forward(self, x):
-        assert x.size(1) % self.d_block == 0, 'seq_len can not divided by d_block!'
-
         # (batch_size, seq_len, d_input)
         x = self.embedding(x)
         # (batch_size, seq_len, d_model)
