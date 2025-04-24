@@ -19,13 +19,13 @@ class Config():
         
         # 训练配置
         self.seq_len: int = 256
-        self.epochs: int = 30
+        self.epochs: int = 50
         self.batch_size: int = 32
         self.lr: float = 0.01
         self.dropout: float = 0.1
 
         # 数据集分割
-        self.train_ratio: float = 0.6
+        self.train_ratio: float = 0.7
         self.val_ratio: float = 0.2
 
         # 稀疏注意力超参数

@@ -20,14 +20,13 @@ class Trainer():
         self.train_loader, self.val_loader, self.test_loader, self.scaler_mean, self.scaler_std = self._dataloader()
         self.optimizer = self._optimizer()
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.1, patience=4
+            self.optimizer, mode='min', factor=0.1, patience=5
         )
         self.criterion = self._criterion()
         self.timer = timer
         self.logger = logger
 
         # 训练状态
-        self.current_epoch = 0
         self.min_loss = 1e9
         self.best_model_state = None
 
@@ -216,8 +215,6 @@ class Trainer():
 
     def train(self):
         for epoch in range(self.config.epochs):
-            self.current_epoch = epoch
-            
             # 训练阶段
             self.timer.start('train')
             train_loss = self.train_epoch()
@@ -236,7 +233,7 @@ class Trainer():
                 break
 
             # 打印日志
-            self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
+            self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Lr: {self.scheduler.get_last_lr()[0]}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
             self.logger.write(self.timer.display_record('epoch'))
 
         self._save_model()
