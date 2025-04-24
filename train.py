@@ -1,4 +1,4 @@
-from tqdm import tqdm
+from copy import deepcopy
 import matplotlib.pyplot as plt
 
 from dataset import load_ett_data, load_mnist_data
@@ -10,7 +10,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 class Trainer():
-    def __init__(self, config):
+    def __init__(self, config: Config, timer: Timer, logger: Logger):
         # 初始化配置
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,17 +20,19 @@ class Trainer():
         self.train_loader, self.val_loader, self.test_loader, self.scaler_mean, self.scaler_std = self._dataloader()
         self.optimizer = self._optimizer()
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.1, patience=5
+            self.optimizer, mode='min', factor=0.1, patience=4
         )
         self.criterion = self._criterion()
+        self.timer = timer
+        self.logger = logger
 
         # 训练状态
         self.current_epoch = 0
         self.min_loss = 1e9
-        self.peak_memory = 0
+        self.best_model_state = None
 
         # 早停
-        self.early_stop_patience = 8
+        self.early_stop_patience = 10
         self.no_improve_epochs = 0
 
     def _model(self):
@@ -97,32 +99,28 @@ class Trainer():
         self.model.train()
         total_loss = 0.0
 
-        for inputs, labels in tqdm(self.train_loader, desc=f'train epoch {self.current_epoch+1}'):
+        for inputs, labels in self.train_loader:
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
 
             # 前向传播
-            Recorder.start("forward")
+            self.timer.start("forward")
             outputs = self.model(inputs)
-            Recorder.pause("forward")
+            self.timer.stop("forward")
             
             # 损失计算
-            Recorder.start("criterion")
             loss = self.criterion(outputs, labels)
-            Recorder.pause("criterion")
             
             # 反向传播
-            Recorder.start("backward")
+            self.timer.start("backward")
             loss.backward()
             # 梯度裁剪 避免梯度爆炸
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            Recorder.pause("backward")
+            self.timer.stop("backward")
 
             # 优化
-            Recorder.start("optimizer")
             self.optimizer.step()
             self.optimizer.zero_grad()
-            Recorder.pause("optimizer")
             
             # 批次损失均值 reduction='mean'
             total_loss += loss.item()
@@ -172,10 +170,15 @@ class Trainer():
         if val_loss < self.min_loss:
             self.min_loss = val_loss
             self.no_improve_epochs = 0
+            self.best_model_state = deepcopy(self.model.state_dict())
         else:
             self.no_improve_epochs += 1
         
         return self.no_improve_epochs >= self.early_stop_patience
+
+    def _save_model(self):
+        if self.best_model_state is not None:
+            self.model.load_state_dict(self.best_model_state)
 
     def visualize(self):
         '''
@@ -213,36 +216,31 @@ class Trainer():
 
     def train(self):
         for epoch in range(self.config.epochs):
-            torch.cuda.reset_peak_memory_stats()
-
             self.current_epoch = epoch
             
             # 训练阶段
-            Recorder.start('train')
+            self.timer.start('train')
             train_loss = self.train_epoch()
-            Recorder.pause('train')
+            self.timer.stop('train')
             
             # 验证阶段
-            Recorder.start('validate')
+            self.timer.start('validate')
             val_loss = self.validate()
-            Recorder.pause('validate')
+            self.timer.stop('validate')
 
             self.scheduler.step(val_loss)
 
-            # MB
-            peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
-            self.peak_memory = max(self.peak_memory, peak_memory)
-
             # 早停判断
             if self.early_stop(val_loss=val_loss):
-                print(f'Early stopping at epoch {epoch+1}...')
+                self.logger.write(f'Early stopping at epoch {epoch+1}...')
                 break
 
             # 打印日志
-            print(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {peak_memory:.3f}MB.')
-            print(Recorder.display_record('epoch'))
+            self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
+            self.logger.write(self.timer.display_record('epoch'))
 
-        write_log(self.config, self.min_loss, self.peak_memory)
+        self._save_model()
+        self.logger.logger(self.min_loss)
 
         # 可视化
         # self.visualize()
@@ -262,6 +260,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     config = Config()
+    timer = Timer()
+    logger = Logger(config=config, timer=timer)
     
     if args.data is not None:
         config.dataset = args.data
@@ -283,16 +283,14 @@ if __name__ == '__main__':
         # if args.model == 'HBA' and args.d_block == 0:
         #     config.d_block = int(math.log(args.seq_len, 2))
 
-        config.display()
-        trainer = Trainer(config)
+        trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [128, 256, 512, 1024]
+        seq_lens = [128, 256]
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:
             #     config.d_block = int(math.log(seq_len, 2))
 
-            config.display()
-            trainer = Trainer(config)
+            trainer = Trainer(config, timer, logger)
             trainer.train()

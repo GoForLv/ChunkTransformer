@@ -1,7 +1,6 @@
 import torch
-from torch import nn
-from torch.nn import init
 
+import json
 from datetime import datetime
 import time
 import os
@@ -45,119 +44,138 @@ class Config():
     def display(self):
         print(f'data={self.dataset}, model={self.model_type}, epochs={self.epochs}, batch_size={self.batch_size}, seq_len={self.seq_len}, d_block={self.d_block}')
 
-class Recorder():
-    phases = []
-    # (str: float)
-    start_time = {}
-    delta_time = {}
-    # (str: [float, float, ...])
-    epoch_time = {}
+    def save(self, json_path):
+        config_dict = {k: v for k, v in vars(self).items() if not k.startswith('_')}
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            data = []
 
-    @staticmethod
-    def start(phase):
+        data.append(config_dict)
+
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+
+class Timer():
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self):
+        self.phases = []
+        # (str: float)
+        self.start_time = {}
+        self.delta_time = {}
+        # (str: [float, float, ...])
+        self.epoch_time = {}
+
+        self._peak_memory = 0
+        torch.cuda.reset_peak_memory_stats()
+
+    def start(self, phase):
         # 确保所有CUDA操作完成
         torch.cuda.synchronize()
-        Recorder.start_time[phase] = time.time()
+        self.start_time[phase] = time.perf_counter()
 
-        if phase not in Recorder.phases:
-            Recorder.phases.append(phase)
-            Recorder.delta_time[phase] = 0
-            Recorder.epoch_time[phase] = []
+        if phase not in self.phases:
+            self.phases.append(phase)
+            self.delta_time[phase] = 0
+            self.epoch_time[phase] = []
 
-    @staticmethod
-    def pause(phase):
+    def stop(self, phase):
         torch.cuda.synchronize()
-        delta_time = time.time() - Recorder.start_time[phase]
-        Recorder.delta_time[phase] += delta_time
+        self.delta_time[phase] = time.perf_counter() - self.start_time[phase]
     
-    @staticmethod
-    def end():
-        for phase in Recorder.phases:
-            Recorder.epoch_time[phase].append(Recorder.delta_time[phase])
-            Recorder.delta_time[phase] = 0
+    def end_epoch(self):
+        for phase in self.phases:
+            self.epoch_time[phase].append(self.delta_time[phase])
 
-    @staticmethod
-    def get_epoch_time(phase):
+    def peak_memory(self):
+        # MB
+        peak_memory = torch.cuda.max_memory_allocated(torch.device("cuda")) / (1024 ** 2)
+        self._peak_memory = max(self._peak_memory, peak_memory)
+        torch.cuda.reset_peak_memory_stats()
+        return self._peak_memory
+
+    def get_epoch_time(self, phase):
         # s
-        return Recorder.epoch_time[phase][-1]
+        return self.epoch_time[phase][-1]
     
-    @staticmethod
-    def get_avg_time(phase):
+    def get_avg_time(self, phase):
         # s
-        return sum(Recorder.epoch_time[phase][5:]) / len(Recorder.epoch_time[phase][5:])
+        return sum(self.epoch_time[phase]) / len(self.epoch_time[phase])
 
-    @staticmethod
-    def _display_record(get_time):
+    def _display_record(self, get_time):
         record = ('-' * 80 + '\n')
         word = 'Phase'
         record += f'{word:<15}'
-        for phase in Recorder.phases:
+        for phase in self.phases:
             record += f'{phase:<10}'
 
         word = 'Epoch Time /s'
         record += f'\n{word:<15}'
-        for phase in Recorder.phases:
+        for phase in self.phases:
             record += f'{get_time(phase):<10.3f}'
         record += ('\n' + '-' * 80 + '\n')
         return record
 
-    @staticmethod
-    def display_record(type: str):
+    def display_record(self, type: str):
         '''
         param:
         type: 'epoch', 'average'
         '''
         if type == 'epoch':
-            Recorder.end()
-            recorder = Recorder._display_record(Recorder.get_epoch_time)
+            self.end_epoch()
+            recorder = self._display_record(self.get_epoch_time)
         elif type == 'average':
-            recorder = Recorder._display_record(Recorder.get_avg_time)
+            recorder = self._display_record(self.get_avg_time)
         return recorder
 
-    @staticmethod
-    def clear():
-        Recorder.phases = []
-        Recorder.start_time = {}
-        Recorder.delta_time = {}
-        Recorder.epoch_time = {}
+class Logger():
+    def __init__(self, config: Config, timer: Timer) -> None:
+        self.today = datetime.now().strftime("%m-%d")
+        self.counter = 0
+        self.log_path = self._get_log_path()
+        self.log_file = open(self.log_path, 'a', encoding='utf-8')
 
-def write_csv_log(config, min_loss, peak_memory):
-    log_path = os.path.join('csvlog', 'hpc.csv')
-    with open(log_path, 'a', encoding='utf-8') as log:
-        # log.write('model,seq_len,d_chunk,train,forward,criterion,backward,optimizer,test,min_loss,peak_memory/MB\n')
-        log.write(f"{config.model_type},{config.seq_len},{config.d_block},"
-                f"{Recorder.get_avg_time('train')},{Recorder.get_avg_time('forward')},"
-                f"{Recorder.get_avg_time('criterion')},{Recorder.get_avg_time('backward')},"
-                f"{Recorder.get_avg_time('optimizer')},{Recorder.get_avg_time('test')},"
-                f"{min_loss},{peak_memory}\n")
+        self.config = config
+        self.timer = timer
 
-def write_log(config, min_loss, peak_memory):
-    log_path = os.path.join('txtlog', datetime.now().strftime('%m-%d')+'.txt')
-    write_csv_log(config, min_loss, peak_memory)
+    def _get_log_path(self):
+        while True:
+            log_path = os.path.join(
+                'txtlog',
+                f"{self.today}-{self.counter}.txt"
+            )
+            if not os.path.exists(log_path):
+                break
+            self.counter += 1
+        return log_path
 
-    with open(log_path, 'a', encoding='utf-8') as log:
-        log.write('*' * 80 + '\n')
+    def write(self, info: str):
+        self.log_file.write(info)
 
-        formatted_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log.write(formatted_time + '\n')
-        
-        # 模型损失
-        log.write(f'model: {config.model_type}, min_loss: {min_loss:.4f}, peak_memory: {peak_memory:.3f}MB\n')
+    def logger(self, min_loss):
+        self.csv_logger(min_loss)
+        self.config.save(os.path.join(
+            'config',
+            f"{self.today}-{self.counter}.json"
+        ))
+        self.log_file.write(f'Summary:, min_loss: {min_loss:.4f}, peak_memory: {self.timer.peak_memory():.3f}MB\n')
+        self.log_file.write(self.timer.display_record('average'))
+        self.log_file.write('\n' * 2)
+        self.timer.reset()
 
-        # 时空Cost
-        log.write(Recorder.display_record('average'))
-
-        # 维度
-        log.write(f'd_model: {config.d_model}, d_ffn: {config.d_ffn}, d_input: {config.d_input}, d_output: {config.d_output}\n')
-        
-        # 稀疏注意力超参数
-        log.write(f'd_block: {config.d_block}\n')
-
-        # 模型超参数
-        log.write(f'nhead: {config.nhead}, num_encoder_layers: {config.num_encoder_layers}\n')
-
-        # 训练超参数
-        log.write(f'seq_len: {config.seq_len}, epochs: {config.epochs}, batch_size: {config.batch_size}, lr: {config.lr}, dropout: {config.dropout}\n\n')
-
-    Recorder.clear()
-
+    def csv_logger(self, min_loss):
+        log_path = os.path.join(
+                'csvlog',
+                f"{self.today}.csv"
+            )
+        is_empty = not os.path.exists(log_path) or os.stat(log_path).st_size == 0
+        with open(log_path, 'a', encoding='utf-8') as log:
+            if is_empty:
+                log.write('log_path,model,seq_len,d_chunk,train,forward,backward,validate,min_loss,peak_memory/MB\n')
+            log.write(f"{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
+                    f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
+                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')}"
+                    f"{min_loss},{self.timer.peak_memory()}\n")

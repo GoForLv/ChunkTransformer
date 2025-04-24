@@ -1,1 +1,0 @@
-model	seq_len	d_chunk	train	forward	criterion	backward	optimizer	test	min_loss	peak_memory/MB
