@@ -26,7 +26,7 @@ class PositionalEncoding(nn.Module):
         dropout: Dropout probability
         max_len: Maximum length of input sequences (default: 4096)
     """
-    def __init__(self, d_model, dropout, max_len=1024):
+    def __init__(self, d_model, dropout, max_len=4096):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         # (max_len, d_model)

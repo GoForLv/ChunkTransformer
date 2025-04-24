@@ -32,7 +32,7 @@ class Trainer():
         self.best_model_state = None
 
         # 早停
-        self.early_stop_patience = 10
+        self.early_stop_patience = 12
         self.no_improve_epochs = 0
 
     def _model(self):
@@ -232,7 +232,7 @@ class Trainer():
 
             # 早停判断
             if self.early_stop(val_loss=val_loss):
-                self.logger.write(f'Early stopping at epoch {epoch+1}...')
+                self.logger.write(f'Early stopping at epoch {epoch+1}...\n\n')
                 break
 
             # 打印日志
@@ -286,7 +286,7 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [128, 256, 512, 1024, 2048]
+        seq_lens = [128, 256, 512, 1024, 2048, 4096]
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:
