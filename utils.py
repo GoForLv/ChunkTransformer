@@ -144,6 +144,7 @@ class Logger():
     def _get_log_path(self):
         while True:
             log_path = os.path.join(
+                'log',
                 'txtlog',
                 f"{self.today}-{self.counter}.txt"
             )
@@ -158,6 +159,7 @@ class Logger():
     def logger(self, min_loss):
         self.csv_logger(min_loss)
         self.config.save(os.path.join(
+            'log',
             'config',
             f"{self.today}-{self.counter}.json"
         ))
@@ -168,6 +170,7 @@ class Logger():
 
     def csv_logger(self, min_loss):
         log_path = os.path.join(
+                'log',
                 'csvlog',
                 f"{self.today}.csv"
             )
