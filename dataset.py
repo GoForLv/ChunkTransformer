@@ -69,7 +69,7 @@ def load_ett_data(name, seq_len, train_ratio=0.7, val_ratio=0.2):
     
     # 归一化
     def normalize(_data):
-        return (_data - scaler_mean) / (scaler_std + 1e-8)
+        return (_data - scaler_mean) / scaler_std
     
     train_data = normalize(train_data)
     val_data = normalize(val_data)

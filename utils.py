@@ -103,7 +103,7 @@ class Timer():
     
     def get_avg_time(self, phase):
         # s
-        return sum(self.epoch_time[phase]) / len(self.epoch_time[phase])
+        return sum(self.epoch_time[phase][5:]) / len(self.epoch_time[phase][5:])
 
     def _display_record(self, get_time):
         record = ('-' * 80 + '\n')
@@ -177,5 +177,5 @@ class Logger():
                 log.write('log_path,model,seq_len,d_chunk,train,forward,backward,validate,min_loss,peak_memory/MB\n')
             log.write(f"{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
-                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')}"
+                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
                     f"{min_loss},{self.timer.peak_memory()}\n")

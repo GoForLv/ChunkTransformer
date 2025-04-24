@@ -170,7 +170,7 @@ class Trainer():
         if val_loss < self.min_loss:
             self.min_loss = val_loss
             self.no_improve_epochs = 0
-            self.best_model_state = deepcopy(self.model.state_dict())
+            self.best_model_state = self.model.state_dict().copy()
         else:
             self.no_improve_epochs += 1
         
@@ -286,7 +286,7 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [128, 256]
+        seq_lens = [128, 256, 512, 1024, 2048]
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:
