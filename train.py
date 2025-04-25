@@ -233,7 +233,7 @@ class Trainer():
                 break
 
             # 打印日志
-            self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Lr: {self.scheduler.get_last_lr()[0]}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
+            self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
             self.logger.write(self.timer.display_record('epoch'))
 
         self._save_model()
