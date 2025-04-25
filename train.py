@@ -67,20 +67,20 @@ class Trainer():
 
     def _dataloader(self):
         if self.config.dataset == 'MNIST':
-            train_dataset, test_dataset = load_mnist_data()
-            val_dataset = test_dataset
+            train_dataset, self.test_dataset = load_mnist_data()
+            val_dataset = self.test_dataset
         elif self.config.dataset.startswith('ETT'):
-            train_dataset, val_dataset, test_dataset, mean, std = load_ett_data(
+            train_dataset, val_dataset, self.test_dataset, mean, std = load_ett_data(
                 name=self.config.dataset,
                 seq_len=self.config.seq_len,
                 train_ratio=self.config.train_ratio,
                 val_ratio=self.config.val_ratio)
-        
+
         return (
                 DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True),
                 DataLoader(val_dataset, batch_size=self.config.batch_size, shuffle=False),
-                DataLoader(test_dataset, batch_size=self.config.batch_size, shuffle=False),
-                mean, std
+                DataLoader(self.test_dataset, batch_size=self.config.batch_size, shuffle=False),
+                mean.to(self.device), std.to(self.device)
                 )
 
     def _criterion(self):
@@ -175,26 +175,30 @@ class Trainer():
         
         return self.no_improve_epochs >= self.early_stop_patience
 
-    def _save_model(self):
+    def load_best_model(self):
         if self.best_model_state is not None:
             self.model.load_state_dict(self.best_model_state)
 
     def visualize(self):
         '''
         multivariate多特征时序预测可视化
-        Todo: add denormalize.
         '''
         inputs, labels = self.test_dataset.tensors
         inputs = inputs.to(self.device)
+        labels = labels.to(self.device)
         with torch.no_grad():
             outputs = self.model(inputs)
+
+        inputs = self.denormalize(inputs)
+        outputs = self.denormalize(outputs)
+        labels = self.denormalize(labels)
 
         count = self.config.d_output
         _, axes = plt.subplots(
             nrows = count,
             ncols=1,
             figsize=(16, 3 * count),
-            sharex=True
+            sharex=False
         )
         for idx in range(count):
             ax = axes[idx]
@@ -209,9 +213,13 @@ class Trainer():
                 outputs.cpu().numpy()[:, idx],
                 label=self.config.model_type
             )
+            ax.set_xlabel('Time Steps')
+            ax.set_ylabel('Value')
+            ax.grid(True)
 
         plt.legend()
-        plt.show()
+        # plt.show()
+
 
     def train(self):
         for epoch in range(self.config.epochs):
@@ -236,11 +244,12 @@ class Trainer():
             self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
             self.logger.write(self.timer.display_record('epoch'))
 
-        self._save_model()
-        self.logger.logger(self.min_loss)
-
+        self.load_best_model()
         # 可视化
-        # self.visualize()
+        self.visualize()
+
+        test_loss = self.test()
+        self.logger.logger(self.min_loss, test_loss)
 
 if __name__ == '__main__':
     import argparse
@@ -279,7 +288,6 @@ if __name__ == '__main__':
         config.seq_len = args.seq_len
         # if args.model == 'HBA' and args.d_block == 0:
         #     config.d_block = int(math.log(args.seq_len, 2))
-
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
@@ -288,6 +296,5 @@ if __name__ == '__main__':
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:
             #     config.d_block = int(math.log(seq_len, 2))
-
             trainer = Trainer(config, timer, logger)
             trainer.train()

@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import time
 import os
+import matplotlib.pyplot as plt
 
 class Config():
     def __init__(self):
@@ -103,7 +104,7 @@ class Timer():
     
     def get_avg_time(self, phase):
         # s
-        return sum(self.epoch_time[phase][5:]) / len(self.epoch_time[phase][5:])
+        return sum(self.epoch_time[phase][:]) / len(self.epoch_time[phase][:])
 
     def _display_record(self, get_time):
         record = ('-' * 80 + '\n')
@@ -156,17 +157,22 @@ class Logger():
     def write(self, info: str):
         self.log_file.write(info)
 
-    def logger(self, min_loss):
+    def logger(self, min_loss, test_loss):
         self.csv_logger(min_loss)
         self.config.save(os.path.join(
             'log',
             'config',
             f"{self.today}-{self.counter}.json"
         ))
-        self.log_file.write(f'Summary:, min_loss: {min_loss:.4f}, peak_memory: {self.timer.peak_memory():.3f}MB\n')
+        self.log_file.write(f'Summary:, Min Loss: {min_loss:.4f}, Test Loss: {test_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB\n')
         self.log_file.write(self.timer.display_record('average'))
         self.log_file.write('\n' * 2)
         self.timer.reset()
+        plt.savefig(os.path.join(
+            'log',
+            'imglog',
+            f"{self.today}-{self.counter}.png"
+        ))
 
     def csv_logger(self, min_loss):
         log_path = os.path.join(

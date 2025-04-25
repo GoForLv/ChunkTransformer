@@ -6,13 +6,6 @@ import pandas as pd
 import os
 
 def load_mnist_data():
-    '''
-    参数:
-    batch_size: 批量大小
-
-    返回:
-    train_loader, test_loader
-    '''
     transform = transforms.Compose([
         transforms.ToTensor(),
     ])

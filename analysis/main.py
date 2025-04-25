@@ -10,30 +10,24 @@ class DataProcessor():
         self.phases_dict = {
             'train': [],
             'forward': [],
-            'criterion': [],
             'backward': [],
-            'optimizer': [],
-            'test': [],
+            'validate': [],
             'min_loss': [],
             'peak_memory': [],
         }
         self.data = {}
         self.models = models
         self.phases = list(self.phases_dict.keys())
-        self.phases.remove('criterion')
-        self.phases.remove('optimizer')
         for model in models:
             self.data[model] = copy.deepcopy(self.phases_dict)
     
-    def add(self, model, seq_len, d_chunk, train, forward, criterion, backward, optimizer, test, min_loss, peak_memory):
+    def add(self, log_path, model, seq_len, d_chunk, train, forward, backward, validate, min_loss, peak_memory):
         if model not in self.models:
             return
         self.data[model]['train'].append(train)
         self.data[model]['forward'].append(forward)
-        self.data[model]['criterion'].append(criterion)
         self.data[model]['backward'].append(backward)
-        self.data[model]['optimizer'].append(optimizer)
-        self.data[model]['test'].append(test)
+        self.data[model]['validate'].append(validate)
         self.data[model]['min_loss'].append(min_loss)
         self.data[model]['peak_memory'].append(peak_memory)
 
@@ -168,7 +162,7 @@ if __name__ == '__main__':
     # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('csvlog\hpc1.csv', 'r', encoding='utf-8') as csvfile:
+    with open('log\csvlog\\04-25.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:
@@ -189,8 +183,8 @@ if __name__ == '__main__':
             for row_idx in range(start_line, end_line):
                 row = csv_reader[row_idx]
                 # print(row)
-                data = [float(i) for i in row[3:]]
-                processor.add(*row[0:3], *data)
+                data = [float(i) for i in row[4:]]
+                processor.add(*row[:4], *data)
 
     # processor.process('Origin', 'Chunk0', 'Chunk0/Origin')
     # for phase in ['min_loss']:
