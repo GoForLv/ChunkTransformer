@@ -19,9 +19,9 @@ class Trainer():
         self.model = self._model().to(self.device)
         self.train_loader, self.val_loader, self.test_loader, self.scaler_mean, self.scaler_std = self._dataloader()
         self.optimizer = self._optimizer()
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.1, patience=5
-        )
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     self.optimizer, mode='min', factor=0.1, patience=3
+        # )
         self.criterion = self._criterion()
         self.timer = timer
         self.logger = logger
@@ -114,7 +114,7 @@ class Trainer():
             self.timer.start("backward")
             loss.backward()
             # 梯度裁剪 避免梯度爆炸
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.timer.stop("backward")
 
             # 优化
@@ -137,6 +137,9 @@ class Trainer():
                 outputs = self.model(inputs)
 
                 loss = self.criterion(outputs, labels)
+
+                # print("outputs", outputs)
+                # print("labels", labels)
                 
                 val_loss += loss.item()
 
@@ -164,16 +167,6 @@ class Trainer():
                 test_loss += loss.item()
 
         return test_loss / len(self.test_loader)
-
-    def early_stop(self, val_loss):
-        if val_loss < self.min_loss:
-            self.min_loss = val_loss
-            self.no_improve_epochs = 0
-            self.best_model_state = self.model.state_dict().copy()
-        else:
-            self.no_improve_epochs += 1
-        
-        return self.no_improve_epochs >= self.early_stop_patience
 
     def load_best_model(self):
         if self.best_model_state is not None:
@@ -233,23 +226,30 @@ class Trainer():
             val_loss = self.validate()
             self.timer.stop('validate')
 
-            self.scheduler.step(val_loss)
+            # self.scheduler.step(val_loss)
 
-            # 早停判断
-            if self.early_stop(val_loss=val_loss):
-                self.logger.write(f'Early stopping at epoch {epoch+1}...\n\n')
-                break
+            if val_loss < self.min_loss:
+                self.min_loss = val_loss
+                self.no_improve_epochs = 0
+                self.best_model_state = self.model.state_dict().copy()
+            else:
+                self.no_improve_epochs += 1
 
             # 打印日志
             self.logger.write(f'Epoch {epoch+1}/{self.config.epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Min Loss: {self.min_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB.\n')
             self.logger.write(self.timer.display_record('epoch'))
+
+            # 早停判断
+            if self.no_improve_epochs >= self.early_stop_patience:
+                self.logger.write(f'Early stopping at epoch {epoch+1}...\n')
+                break
 
         self.load_best_model()
         # 可视化
         self.visualize()
 
         test_loss = self.test()
-        self.logger.logger(self.min_loss, test_loss)
+        self.logger.logger(self.min_loss, test_loss, self.best_model_state)
 
 if __name__ == '__main__':
     import argparse
@@ -291,7 +291,7 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [128, 256, 512, 1024, 2048, 4096]
+        seq_lens = [128]
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:

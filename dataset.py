@@ -58,7 +58,7 @@ def load_ett_data(name, seq_len, train_ratio=0.7, val_ratio=0.2):
     
     # 计算归一化参数(仅使用训练集)
     scaler_mean = train_data.mean(dim=(0,1))  # (num_features,)
-    scaler_std = train_data.std(dim=(0,1))    # (num_features,)
+    scaler_std = train_data.std(dim=(0,1)) + 1e-8    # (num_features,)
     
     # 归一化
     def normalize(_data):

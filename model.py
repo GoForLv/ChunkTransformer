@@ -15,7 +15,7 @@ def softmax(scores: torch.Tensor, dim=-1):
     """
     scores_max, _ = torch.max(scores, dim=dim, keepdim=True)
     scores_exp = torch.exp(scores - scores_max)
-    attn = scores_exp / (scores_exp.sum(dim=dim, keepdim=True) + 1e-10)
+    attn = scores_exp / (scores_exp.sum(dim=dim, keepdim=True) + 1e-8)
     return attn
 
 class PositionalEncoding(nn.Module):
@@ -240,8 +240,8 @@ class Transformer(nn.Module):
         self.out = nn.Linear(d_model, d_output)
 
         # Initialize weights
-        nn.init.normal_(self.embedding.weight, mean=0, std=0.02)
-        nn.init.normal_(self.out.weight, mean=0, std=0.02)
+        nn.init.normal_(self.embedding.weight, mean=0, std=0.1)
+        nn.init.normal_(self.out.weight, mean=0, std=0.1)
 
         self.d_block = d_block
         self.attn = attn
@@ -266,15 +266,17 @@ class TorchTransformer(nn.Module):
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         encoder_layer = nn.TransformerEncoderLayer(d_model, nhead, d_ffn, dropout, batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
+        # self.transformer_encoder = TransformerEncoder(d_model, nhead, d_ffn, num_encoder_layers, dropout, d_block=8, attn='HBA')
         self.out = nn.Linear(d_model, d_output)
     
         # Initialize weights
-        nn.init.normal_(self.embedding.weight, mean=0, std=0.02)
-        nn.init.normal_(self.out.weight, mean=0, std=0.02)
+        nn.init.normal_(self.embedding.weight, mean=0, std=0.1)
+        nn.init.normal_(self.out.weight, mean=0, std=0.1)
 
     def forward(self, x):
-        # src形状: (batch_size, seq_len, d_input)
-        x = self.embedding(x)  # (batch_size, seq_len, d_model)
+        # (batch_size, seq_len, d_input)
+        # (batch_size, seq_len, d_model)
+        x = self.embedding(x)
         x = self.pos_encoder(x)
         output = self.transformer_encoder(x)
         # (batch_size, d_model)

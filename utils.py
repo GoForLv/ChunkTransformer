@@ -10,7 +10,7 @@ class Config():
     def __init__(self):
         # 数据集配置
         self.dataset: str = 'ETTh1'
-        self.model_type: str = 'HBA'  # ['Torch', 'Base', 'HBA']
+        self.model_type: str = 'Torch'  # ['Torch', 'Base', 'HBA']
         
         # 模型维度配置
         self.d_model: int = 64
@@ -20,9 +20,9 @@ class Config():
         
         # 训练配置
         self.seq_len: int = 256
-        self.epochs: int = 50
+        self.epochs: int = 100
         self.batch_size: int = 32
-        self.lr: float = 0.01
+        self.lr: float = 0.0001
         self.dropout: float = 0.1
 
         # 数据集分割
@@ -157,8 +157,8 @@ class Logger():
     def write(self, info: str):
         self.log_file.write(info)
 
-    def logger(self, min_loss, test_loss):
-        self.csv_logger(min_loss)
+    def logger(self, min_loss, test_loss, best_model_state):
+        self.csv_logger(min_loss, test_loss)
         self.config.save(os.path.join(
             'log',
             'config',
@@ -173,8 +173,13 @@ class Logger():
             'imglog',
             f"{self.today}-{self.counter}.png"
         ))
+        torch.save(best_model_state, os.path.join(
+            'log',
+            'model',
+            f"{self.today}-{self.counter}.pth"
+        ))
 
-    def csv_logger(self, min_loss):
+    def csv_logger(self, min_loss, test_loss):
         log_path = os.path.join(
                 'log',
                 'csvlog',
@@ -183,8 +188,8 @@ class Logger():
         is_empty = not os.path.exists(log_path) or os.stat(log_path).st_size == 0
         with open(log_path, 'a', encoding='utf-8') as log:
             if is_empty:
-                log.write('log_path,model,seq_len,d_chunk,train,forward,backward,validate,min_loss,peak_memory/MB\n')
-            log.write(f"{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
+                log.write('log_path,model,seq_len,d_chunk,train,forward,backward,validate,min_loss,test_loss,peak_memory/MB\n')
+            log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
                     f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
-                    f"{min_loss},{self.timer.peak_memory()}\n")
+                    f"{min_loss},{test_loss},{self.timer.peak_memory()}\n")
