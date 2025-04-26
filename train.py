@@ -291,7 +291,7 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [128]
+        seq_lens = [128, 256, 512, 1024, 2048]
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:
