@@ -33,7 +33,7 @@ class Config():
         self.d_block=8
 
         # 模型超参数
-        self.nhead=8
+        self.n_head=8
         self.num_encoder_layers=6
 
         # 验证参数合法性
@@ -168,7 +168,7 @@ class Logger():
             'config',
             f"{self.today}-{self.counter}.json"
         ))
-        self.log_file.write(f'Summary:, Min Loss: {min_loss:.4f}, Test Loss: {test_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB\n')
+        self.log_file.write(f'Summary:, Min Loss: {min_loss:.4f}, Test Loss: {test_loss:.4f}, Peak Memory: {self.timer._peak_memory:.3f}MB\n')
         self.log_file.write(self.timer.display_record('average'))
         self.log_file.write('\n' * 2)
         plt.savefig(os.path.join(
@@ -195,4 +195,4 @@ class Logger():
             log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
                     f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
-                    f"{min_loss},{test_loss},{self.timer.peak_memory()}\n")
+                    f"{min_loss},{test_loss},{self.timer._peak_memory}\n")

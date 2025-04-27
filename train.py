@@ -37,7 +37,7 @@ class Trainer():
     def _model(self):
         if self.config.model_type == 'Torch':
             model = TorchTransformer(d_model=self.config.d_model,
-                                nhead=self.config.nhead,
+                                n_head=self.config.n_head,
                                 d_ffn=self.config.d_ffn,
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
@@ -45,7 +45,7 @@ class Trainer():
                                 dropout=self.config.dropout)
         elif self.config.model_type == 'Base':
             model = Transformer(d_model=self.config.d_model,
-                                nhead=self.config.nhead,
+                                n_head=self.config.n_head,
                                 d_ffn=self.config.d_ffn,
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
@@ -55,7 +55,7 @@ class Trainer():
                                 attn='Base')
         elif self.config.model_type == 'HBA':
             model = Transformer(d_model=self.config.d_model,
-                                nhead=self.config.nhead,
+                                n_head=self.config.n_head,
                                 d_ffn=self.config.d_ffn,
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
