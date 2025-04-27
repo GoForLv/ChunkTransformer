@@ -85,11 +85,12 @@ class Timer():
 
     def stop(self, phase):
         torch.cuda.synchronize()
-        self.delta_time[phase] = time.perf_counter() - self.start_time[phase]
+        self.delta_time[phase] += time.perf_counter() - self.start_time[phase]
     
     def end_epoch(self):
         for phase in self.phases:
             self.epoch_time[phase].append(self.delta_time[phase])
+            self.delta_time[phase] = 0
 
     def peak_memory(self):
         # MB
@@ -104,7 +105,9 @@ class Timer():
     
     def get_avg_time(self, phase):
         # s
-        return sum(self.epoch_time[phase][:]) / len(self.epoch_time[phase][:])
+        if len(self.epoch_time[phase]) <= 5:
+            return sum(self.epoch_time[phase]) / len(self.epoch_time[phase])
+        return sum(self.epoch_time[phase][5:]) / len(self.epoch_time[phase][5:])
 
     def _display_record(self, get_time):
         record = ('-' * 80 + '\n')
@@ -188,9 +191,8 @@ class Logger():
         is_empty = not os.path.exists(log_path) or os.stat(log_path).st_size == 0
         with open(log_path, 'a', encoding='utf-8') as log:
             if is_empty:
-                log.write('log_path,model,seq_len,d_block,train,forward,backward,criterion,optimizer,validate,min_loss,test_loss,peak_memory/MB\n')
+                log.write('log_path,model,seq_len,d_block,train,forward,backward,validate,min_loss,test_loss,peak_memory/MB\n')
             log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
-                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('criterion')},"
-                    f"{self.timer.get_avg_time('optimizer')},{self.timer.get_avg_time('validate')},"
+                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
                     f"{min_loss},{test_loss},{self.timer.peak_memory()}\n")

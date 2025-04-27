@@ -49,135 +49,12 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
 
-class FullAttention(nn.Module):
+class MultiheadAttention(nn.Module):
     """
     Full Attention.
     """
-    def __init__(self, d_model, nhead, dropout, d_block):
-        super(HierarchicalBlockAttention, self).__init__()
-        self.d_model = d_model
-        self.nhead = nhead
-        self.d_k = d_model // nhead
-        self.d_v = self.d_k
-        self.W_Q = nn.Linear(d_model, d_model)
-        self.W_K = nn.Linear(d_model, d_model)
-        self.W_V = nn.Linear(d_model, d_model)
-        self.W_O = nn.Linear(d_model, d_model)
-
-        # Initialize weights, gain adapt to ReLU
-        nn.init.xavier_uniform_(self.W_Q.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_K.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_V.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_O.weight, gain=math.sqrt(2))
-
-        self.dropout = nn.Dropout(dropout)
-        self.d_block = d_block
-
-    def forward(self, q, k, v):
-        # (batch_size, seq_len, d_model)
-        batch_size, seq_len, _ = q.size()
-        # (batch_size, seq_len, d_model)
-        Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
-
-        # (batch_size, nhead, seq_len, d_k)
-        Q = Q.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        V = V.view(batch_size, seq_len, self.nhead, self.d_v).transpose(1, 2)
-
-        # 分块后: (batch_size, nhead, nblock, d_block, d_k)
-        Q = Q.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
-        K = K.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
-        V = V.view(batch_size, self.nhead, -1, self.d_block, self.d_v)
-        # (batch_size, nhead, nblock, d_block, d_block)
-        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
-        attn_weight = softmax(scores)
-
-        # Apply dropout
-        attn_weight = self.dropout(attn_weight)
-
-        # (batch_size, nhead, nblock, d_block, d_v)
-        attn = torch.matmul(attn_weight, V)
-        # (batch_size, nhead, seq_len, d_v)
-        concat = attn.view(batch_size, self.nhead, -1, self.d_v)
-
-        # (batch_size, seq_len, d_model)
-        concat = concat.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
-        # (batch_size, seq_len, d_model)
-        output = self.W_O(concat)
-        return output
-
-class HierarchicalBlockAttention(nn.Module):
-    """Hierarchical block attention mechanism that processes input in blocks.
-    
-    Args:
-        d_model: Dimension of input embeddings
-        nhead: Number of attention heads
-        dropout: Dropout probability
-        d_block: Size of each processing block
-    """
-    def __init__(self, d_model, nhead, dropout, d_block):
-        super(HierarchicalBlockAttention, self).__init__()
-        self.d_model = d_model
-        self.nhead = nhead
-        self.d_k = d_model // nhead
-        self.d_v = self.d_k
-        self.W_Q = nn.Linear(d_model, d_model)
-        self.W_K = nn.Linear(d_model, d_model)
-        self.W_V = nn.Linear(d_model, d_model)
-        self.W_O = nn.Linear(d_model, d_model)
-
-        # Initialize weights, gain adapt to ReLU
-        nn.init.xavier_uniform_(self.W_Q.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_K.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_V.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_O.weight, gain=math.sqrt(2))
-
-        self.dropout = nn.Dropout(dropout)
-        self.d_block = d_block
-
-    def forward(self, q, k, v):
-        # (batch_size, seq_len, d_model)
-        batch_size, seq_len, _ = q.size()
-        # (batch_size, seq_len, d_model)
-        Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
-
-        # (batch_size, nhead, seq_len, d_k)
-        Q = Q.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
-        V = V.view(batch_size, seq_len, self.nhead, self.d_v).transpose(1, 2)
-
-        # 分块后: (batch_size, nhead, nblock, d_block, d_k)
-        Q = Q.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
-        K = K.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
-        V = V.view(batch_size, self.nhead, -1, self.d_block, self.d_v)
-        # (batch_size, nhead, nblock, d_block, d_block)
-        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
-        attn_weight = softmax(scores)
-
-        # Apply dropout
-        attn_weight = self.dropout(attn_weight)
-
-        # (batch_size, nhead, nblock, d_block, d_v)
-        attn = torch.matmul(attn_weight, V)
-        # (batch_size, nhead, seq_len, d_v)
-        concat = attn.view(batch_size, self.nhead, -1, self.d_v)
-
-        # (batch_size, seq_len, d_model)
-        concat = concat.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
-        # (batch_size, seq_len, d_model)
-        output = self.W_O(concat)
-        return output
-
-class MultiHeadAttention(nn.Module):
-    """Standard multi-head attention mechanism.
-    
-    Args:
-        d_model: Dimension of input embeddings
-        nhead: Number of attention heads
-        dropout: Dropout probability
-    """
     def __init__(self, d_model, nhead, dropout):
-        super(MultiHeadAttention, self).__init__()
+        super(MultiheadAttention, self).__init__()
         self.d_model = d_model
         self.nhead = nhead
         self.d_k = d_model // nhead
@@ -188,13 +65,13 @@ class MultiHeadAttention(nn.Module):
         self.W_O = nn.Linear(d_model, d_model)
 
         # Initialize weights, gain adapt to ReLU
-        nn.init.xavier_uniform_(self.W_Q.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_K.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_V.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.W_O.weight, gain=math.sqrt(2))
-    
+        nn.init.xavier_uniform_(self.W_Q.weight)
+        nn.init.xavier_uniform_(self.W_K.weight)
+        nn.init.xavier_uniform_(self.W_V.weight)
+        nn.init.xavier_uniform_(self.W_O.weight)
+
         self.dropout = nn.Dropout(dropout)
-    
+
     def forward(self, q, k, v):
         # (batch_size, seq_len, d_model)
         batch_size = q.size(0)
@@ -205,6 +82,7 @@ class MultiHeadAttention(nn.Module):
         Q = Q.view(batch_size, -1, self.nhead, self.d_k).transpose(1, 2)
         K = K.view(batch_size, -1, self.nhead, self.d_k).transpose(1, 2)
         V = V.view(batch_size, -1, self.nhead, self.d_v).transpose(1, 2)
+
         # (batch_size, nhead, seq_len, seq_len)
         scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
         attn_weight = softmax(scores)
@@ -221,6 +99,55 @@ class MultiHeadAttention(nn.Module):
         output = self.W_O(concat)
         return output
 
+class BlockAttention(nn.Module):
+    """Hierarchical block attention mechanism that processes input in blocks.
+    
+    Args:
+        d_model: Dimension of input embeddings
+        nhead: Number of attention heads
+        dropout: Dropout probability
+        d_block: Size of each processing block
+    """
+    def __init__(self, d_model, nhead, dropout, d_block):
+        super(BlockAttention, self).__init__()
+        self.d_model = d_model
+        self.d_block = d_block
+        self.full_attn = MultiheadAttention(d_model, nhead, dropout)
+
+    def forward(self, x):
+        # (batch_size, seq_len, d_model)
+        batch_size = x.size(0)
+
+        # 分块
+        # (batch_size, nblock, d_block, d_model)
+        x = x.view(batch_size, -1, self.d_block, self.d_model)
+        # (batch_size * nblock, d_block, d_model)
+        x = x.view(-1, self.d_block, self.d_model)
+    
+        x = self.full_attn(x, x, x)
+        
+        # (batch_size, nblock, d_block, d_model)
+        x = x.view(batch_size, -1, self.d_block, self.d_model)
+        # (batch_size, seq_len, d_model)
+        x = x.view(batch_size, -1, self.d_model)
+        return x
+
+class SelfAttention(nn.Module):
+    """Standard multi-head attention mechanism.
+    
+    Args:
+        d_model: Dimension of input embeddings
+        nhead: Number of attention heads
+        dropout: Dropout probability
+    """
+    def __init__(self, d_model, nhead, dropout):
+        super(SelfAttention, self).__init__()
+        self.full_attn = MultiheadAttention(d_model, nhead, dropout)
+    
+    def forward(self, x):
+        x = self.full_attn(x, x, x)
+        return x
+
 class FeedForward(nn.Module):
     """Position-wise feed forward network with ReLU activation.
     
@@ -235,8 +162,8 @@ class FeedForward(nn.Module):
         self.fc2 = nn.Linear(d_ffn, d_model)
     
         # Initialize weights
-        nn.init.xavier_uniform_(self.fc1.weight, gain=math.sqrt(2))
-        nn.init.xavier_uniform_(self.fc2.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
 
         self.dropout = nn.Dropout(dropout)
 
@@ -253,9 +180,9 @@ class TransformerEncoderLayer(nn.Module):
     def __init__(self, d_model, nhead, d_ffn, dropout, d_block, attn):
         super(TransformerEncoderLayer, self).__init__()
         if attn == 'Base':
-            self.attn = MultiHeadAttention(d_model, nhead, dropout)
+            self.attn = SelfAttention(d_model, nhead, dropout)
         elif attn == 'HBA':
-            self.attn = HierarchicalBlockAttention(d_model, nhead, dropout, d_block)
+            self.attn = BlockAttention(d_model, nhead, dropout, d_block)
         self.ffn = FeedForward(d_model, d_ffn, dropout)
         # two SubLayerNorm：一个用于注意力后，一个用于FFN后
         self.norm1 = nn.LayerNorm(d_model)
@@ -265,7 +192,7 @@ class TransformerEncoderLayer(nn.Module):
     def forward(self, x):
         # Pre-LN: SubLayer(x) = x + Dropout(Sublayer(LayerNorm(x)))
         x_norm1 = self.norm1(x)
-        attn = self.attn(x_norm1, x_norm1, x_norm1)
+        attn = self.attn(x_norm1)
         x = x + self.dropout(attn)
 
         x_norm2 = self.norm2(x)
@@ -297,8 +224,8 @@ class Transformer(nn.Module):
         self.out = nn.Linear(d_model, d_output)
 
         # Initialize weights
-        nn.init.normal_(self.embedding.weight, mean=0, std=0.1)
-        nn.init.normal_(self.out.weight, mean=0, std=0.1)
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
 
         self.d_block = d_block
         self.attn = attn
@@ -327,8 +254,8 @@ class TorchTransformer(nn.Module):
         self.out = nn.Linear(d_model, d_output)
     
         # Initialize weights
-        nn.init.normal_(self.embedding.weight, mean=0, std=0.1)
-        nn.init.normal_(self.out.weight, mean=0, std=0.1)
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
