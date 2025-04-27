@@ -49,6 +49,63 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
 
+class FullAttention(nn.Module):
+    """
+    Full Attention.
+    """
+    def __init__(self, d_model, nhead, dropout, d_block):
+        super(HierarchicalBlockAttention, self).__init__()
+        self.d_model = d_model
+        self.nhead = nhead
+        self.d_k = d_model // nhead
+        self.d_v = self.d_k
+        self.W_Q = nn.Linear(d_model, d_model)
+        self.W_K = nn.Linear(d_model, d_model)
+        self.W_V = nn.Linear(d_model, d_model)
+        self.W_O = nn.Linear(d_model, d_model)
+
+        # Initialize weights, gain adapt to ReLU
+        nn.init.xavier_uniform_(self.W_Q.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_K.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_V.weight, gain=math.sqrt(2))
+        nn.init.xavier_uniform_(self.W_O.weight, gain=math.sqrt(2))
+
+        self.dropout = nn.Dropout(dropout)
+        self.d_block = d_block
+
+    def forward(self, q, k, v):
+        # (batch_size, seq_len, d_model)
+        batch_size, seq_len, _ = q.size()
+        # (batch_size, seq_len, d_model)
+        Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
+
+        # (batch_size, nhead, seq_len, d_k)
+        Q = Q.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
+        K = K.view(batch_size, seq_len, self.nhead, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, seq_len, self.nhead, self.d_v).transpose(1, 2)
+
+        # 分块后: (batch_size, nhead, nblock, d_block, d_k)
+        Q = Q.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
+        K = K.view(batch_size, self.nhead, -1, self.d_block, self.d_k)
+        V = V.view(batch_size, self.nhead, -1, self.d_block, self.d_v)
+        # (batch_size, nhead, nblock, d_block, d_block)
+        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
+        attn_weight = softmax(scores)
+
+        # Apply dropout
+        attn_weight = self.dropout(attn_weight)
+
+        # (batch_size, nhead, nblock, d_block, d_v)
+        attn = torch.matmul(attn_weight, V)
+        # (batch_size, nhead, seq_len, d_v)
+        concat = attn.view(batch_size, self.nhead, -1, self.d_v)
+
+        # (batch_size, seq_len, d_model)
+        concat = concat.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
+        # (batch_size, seq_len, d_model)
+        output = self.W_O(concat)
+        return output
+
 class HierarchicalBlockAttention(nn.Module):
     """Hierarchical block attention mechanism that processes input in blocks.
     

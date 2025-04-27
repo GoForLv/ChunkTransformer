@@ -21,7 +21,7 @@ class DataProcessor():
         for model in models:
             self.data[model] = copy.deepcopy(self.phases_dict)
     
-    def add(self, log_path, model, seq_len, d_chunk, train, forward, backward, validate, min_loss, peak_memory):
+    def add(self, log_path, model, seq_len, d_chunk, train, forward, backward, validate, min_loss, test_loss, peak_memory):
         if model not in self.models:
             return
         self.data[model]['train'].append(train)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('log\csvlog\\04-25.csv', 'r', encoding='utf-8') as csvfile:
+    with open('log\csvlog\\04-26.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:
@@ -177,10 +177,11 @@ if __name__ == '__main__':
                 processor.add(*row[0:3], *data)
         else:
             # new
-            start_line = 2 - 1
-            end_line = 13
+            start_line = 3 - 1
+            end_line = 23
+            step = 2
             # 逐行读取
-            for row_idx in range(start_line, end_line):
+            for row_idx in range(start_line, end_line, step):
                 row = csv_reader[row_idx]
                 # print(row)
                 data = [float(i) for i in row[4:]]

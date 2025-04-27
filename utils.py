@@ -130,6 +130,7 @@ class Timer():
             recorder = self._display_record(self.get_epoch_time)
         elif type == 'average':
             recorder = self._display_record(self.get_avg_time)
+            self.reset()
         return recorder
 
 class Logger():
@@ -167,7 +168,6 @@ class Logger():
         self.log_file.write(f'Summary:, Min Loss: {min_loss:.4f}, Test Loss: {test_loss:.4f}, Peak Memory: {self.timer.peak_memory():.3f}MB\n')
         self.log_file.write(self.timer.display_record('average'))
         self.log_file.write('\n' * 2)
-        self.timer.reset()
         plt.savefig(os.path.join(
             'log',
             'imglog',
@@ -188,8 +188,9 @@ class Logger():
         is_empty = not os.path.exists(log_path) or os.stat(log_path).st_size == 0
         with open(log_path, 'a', encoding='utf-8') as log:
             if is_empty:
-                log.write('log_path,model,seq_len,d_chunk,train,forward,backward,validate,min_loss,test_loss,peak_memory/MB\n')
+                log.write('log_path,model,seq_len,d_block,train,forward,backward,criterion,optimizer,validate,min_loss,test_loss,peak_memory/MB\n')
             log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
-                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
+                    f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('criterion')},"
+                    f"{self.timer.get_avg_time('optimizer')},{self.timer.get_avg_time('validate')},"
                     f"{min_loss},{test_loss},{self.timer.peak_memory()}\n")

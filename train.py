@@ -108,7 +108,9 @@ class Trainer():
             self.timer.stop("forward")
             
             # 损失计算
+            self.timer.start("criterion")
             loss = self.criterion(outputs, labels)
+            self.timer.stop("criterion")
             
             # 反向传播
             self.timer.start("backward")
@@ -118,8 +120,10 @@ class Trainer():
             self.timer.stop("backward")
 
             # 优化
+            self.timer.start("optimizer")
             self.optimizer.step()
             self.optimizer.zero_grad()
+            self.timer.stop("optimizer")
             
             # 批次损失均值 reduction='mean'
             total_loss += loss.item()
