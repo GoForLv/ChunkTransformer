@@ -10,7 +10,7 @@ class Config():
     def __init__(self):
         # 数据集配置
         self.dataset: str = 'ETTh1'
-        self.model_type: str = 'Torch'  # ['Torch', 'Base', 'HBA']
+        self.model_type: str = 'FullHBA'  # ['Torch', 'Base', 'HBA']
         
         # 模型维度配置
         self.d_model: int = 64
@@ -19,9 +19,9 @@ class Config():
         self.d_output: int = 7
         
         # 训练配置
-        self.seq_len: int = 256
+        self.seq_len: int = 512
         self.epochs: int = 100
-        self.batch_size: int = 32
+        self.batch_size: int = 64
         self.lr: float = 0.0001
         self.dropout: float = 0.1
 

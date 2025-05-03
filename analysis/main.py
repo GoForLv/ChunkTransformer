@@ -104,7 +104,8 @@ def polyfit(x: list, y: list, n: int) -> list:
     return x_fit, y_fit
 
 def visualize(processor):
-    seq_len = [128, 256, 512, 1024]
+    # seq_len = [128, 256, 512, 1024]
+    seq_len = [1, 2, 4, 8]
     num_phases = len(processor.phases)
 
     ncols = 2
@@ -120,11 +121,11 @@ def visualize(processor):
         ax = axes[idx//ncols][idx%ncols]
         for model in processor.models:
             nsamples = min(len(seq_len), len(processor.data[model][phase]))
-            if phase == 'min_loss' or 'fake_loss':
+            if phase == 'min_loss':
                 ax.plot(
                     seq_len[:nsamples],
                     processor.data[model][phase][:nsamples],
-                    label='HBA' if model == 'HBA_8' else model,
+                    label=model,
                     marker='o',
                 )
             else:
@@ -162,7 +163,7 @@ if __name__ == '__main__':
     # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('log\csvlog\\04-26.csv', 'r', encoding='utf-8') as csvfile:
+    with open('log\csvlog\\04-27.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:

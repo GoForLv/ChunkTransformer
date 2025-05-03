@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 
 from dataset import load_ett_data, load_mnist_data
 from utils import *
-from model import Transformer, TorchTransformer
+from model import TorchTransformer, Transformer
+from HBA import HBATransformer
 
 import torch
 from torch import nn
@@ -63,6 +64,15 @@ class Trainer():
                                 dropout=self.config.dropout,
                                 d_block=self.config.d_block,
                                 attn='HBA')
+        elif self.config.model_type == 'FullHBA':
+            model = HBATransformer(d_model=self.config.d_model,
+                                n_head=self.config.n_head,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout,
+                                d_block=self.config.d_block)
         return model
 
     def _dataloader(self):
