@@ -156,14 +156,14 @@ if __name__ == '__main__':
     # models = ['Base', 'Torch', 'HBA_16']
 
     # 新数据 所有模型对比
-    models = ['Base', 'Torch', 'HBA']
+    models = ['Base', 'Torch', 'HBA', 'FullHBA']
     # models = ['Base', 'Torch', 'HBA', 'HBA_8', 'HBA_16', 'HBA_32', 'HBA_64']
 
     # 验证加速比
     # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('log\csvlog\\04-27.csv', 'r', encoding='utf-8') as csvfile:
+    with open('log\csvlog\\05-04.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         else:
             # new
             start_line = 3 - 1
-            end_line = 23
+            end_line = 33
             step = 2
             # 逐行读取
             for row_idx in range(start_line, end_line, step):
