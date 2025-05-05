@@ -1,4 +1,3 @@
-from copy import deepcopy
 import matplotlib.pyplot as plt
 
 from dataset import load_ett_data, load_mnist_data
@@ -215,6 +214,7 @@ class Trainer():
             )
             ax.set_xlabel('Time Steps')
             ax.set_ylabel('Value')
+            ax.set_title(str(self.config.seq_len))
             ax.grid(True)
 
         plt.legend()
@@ -298,7 +298,8 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [128, 256, 512, 1024, 2048]
+        # seq_lens = [128, 256, 512, 1024, 2048]
+        seq_lens = [64 * i for i in range(1, 9)]
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:

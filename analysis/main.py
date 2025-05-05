@@ -163,7 +163,7 @@ if __name__ == '__main__':
     # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('log\csvlog\\05-04.csv', 'r', encoding='utf-8') as csvfile:
+    with open('log\csvlog\\05-05.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:
