@@ -166,7 +166,7 @@ class Logger():
         self.config.save(os.path.join(
             'log',
             'config',
-            f"{self.today}-{self.counter}.json"
+            f"{self.today}-{self.counter}-{self.config.seq_len}.json"
         ))
         self.log_file.write(f'Summary:, Min Loss: {min_loss:.4f}, Test Loss: {test_loss:.4f}, Peak Memory: {self.timer._peak_memory:.3f}MB\n')
         self.log_file.write(self.timer.display_record('average'))
