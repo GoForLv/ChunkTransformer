@@ -19,7 +19,7 @@ echo "Train..."
 
 python train.py --data=ETTh1 --model=Torch --epochs=100 --batch_size=64
 python train.py --data=ETTh1 --model=Base --epochs=100 --batch_size=64
+python train.py --data=ETTh1 --model=LocalHBA --epochs=100 --batch_size=64 --d_block=8
 python train.py --data=ETTh1 --model=HBA --epochs=100 --batch_size=64 --d_block=8
-python train.py --data=ETTh1 --model=FullHBA --epochs=100 --batch_size=64 --d_block=8
 
 date

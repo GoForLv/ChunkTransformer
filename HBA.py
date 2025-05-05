@@ -126,11 +126,12 @@ class FeedForward(nn.Module):
         return x
 
 class PoolingLayer(nn.Module):
-    def __init__(self, d_model, d_block, n_head, dropout) -> None:
+    def __init__(self, d_model, n_head, dropout) -> None:
         super(PoolingLayer, self).__init__()
         self.query = nn.Parameter(torch.randn(1, 1, d_model))
-        self.norm = nn.LayerNorm(d_model)
         self.attn = MultiheadAttention(d_model, n_head, dropout)
+        self.norm = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
     
     def forward(self, x):
         # (batch_size * n_block, d_block, d_model)
@@ -138,9 +139,11 @@ class PoolingLayer(nn.Module):
 
         # (batch_size * n_block, 1, d_model)
         query = self.query.expand(batch_size, -1, -1)
-
+        
+        x_norm = self.norm(x)
         # (batch_size * n_block, 1, d_model)
-        x = self.attn(query, x, x)
+        x = self.attn(query, x_norm, x_norm)
+        x = self.dropout(x)
         # (batch_size * n_block, d_model)
         return x.squeeze(1)
 
@@ -174,7 +177,7 @@ class HBATransformer(nn.Module):
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         self.local_layers = nn.ModuleList([TransformerEncoderLayer(d_model, n_head, d_ffn, dropout, d_block)
                                            for _ in range(num_encoder_layers)])
-        self.pooling = PoolingLayer(d_model, d_block, n_head, dropout)
+        self.pooling = PoolingLayer(d_model, n_head, dropout)
         self.global_layers = nn.ModuleList([TransformerEncoderLayer(d_model, n_head, d_ffn, dropout, d_block)
                                            for _ in range(num_encoder_layers)])
         self.out = nn.Linear(d_model, d_output)
@@ -184,7 +187,6 @@ class HBATransformer(nn.Module):
         nn.init.xavier_uniform_(self.out.weight)
 
         self.d_block = d_block
-        # self.d_output = d_output
         self.d_model = d_model
 
     def forward(self, x):
@@ -209,5 +211,97 @@ class HBATransformer(nn.Module):
 
         # (batch_size, n_block, d_output)
         output = self.out(x)
+        # (batch_size, d_output)
         output = output.mean(dim=1)
+        return output
+
+class LocalHBATransformer(nn.Module):
+    """Complete Transformer model with custom implementation."""
+    def __init__(self, d_model, n_head, d_ffn, num_encoder_layers, d_input, d_output, dropout, d_block):
+        super(LocalHBATransformer, self).__init__()
+        self.embedding = nn.Linear(d_input, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.local_layers = nn.ModuleList([TransformerEncoderLayer(d_model, n_head, d_ffn, dropout, d_block)
+                                           for _ in range(num_encoder_layers)])
+        self.out = nn.Linear(d_model, d_output)
+
+        # Initialize weights
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
+
+        self.d_block = d_block
+        self.d_model = d_model
+
+    def forward(self, x):
+        # (batch_size, seq_len, d_input)
+        batch_size = x.size(0)
+        # (batch_size, seq_len, d_model)
+        x = self.embedding(x)
+        x = self.pos_encoder(x)
+
+        # (batch_size * n_block, d_block, d_model)
+        x = x.view(-1, self.d_block, self.d_model)
+        for layer in self.local_layers:
+            x = layer(x)
+
+        # (batch_size, seq_len, d_model)
+        x = x.view(batch_size, -1, self.d_model)
+        # (batch_size, d_model)
+        output = x.mean(dim=1)
+        # (batch_size, d_output)
+        output = self.out(output)
+        return output
+
+class BaseTransformer(nn.Module):
+    def __init__(self, d_model, n_head, d_ffn, num_encoder_layers, d_input, d_output, dropout, d_block):
+        super(BaseTransformer, self).__init__()
+        self.embedding = nn.Linear(d_input, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.encoders = nn.ModuleList([TransformerEncoderLayer(d_model, n_head, d_ffn, dropout, d_block)
+                                           for _ in range(num_encoder_layers)])
+        self.out = nn.Linear(d_model, d_output)
+
+        # Initialize weights
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
+
+        self.d_block = d_block
+
+    def forward(self, x):
+        # (batch_size, seq_len, d_input)
+        x = self.embedding(x)
+        # (batch_size, seq_len, d_model)
+        x = self.pos_encoder(x)
+        for encoder in self.encoders:
+            x = encoder(x)
+        # (batch_size, d_model)
+        output = x.mean(dim=1)
+        # (batch_size, d_output)
+        output = self.out(output)
+        return output
+
+class TorchTransformer(nn.Module):
+    """Transformer model using PyTorch's built-in components."""
+    def __init__(self, d_model, n_head, d_ffn, num_encoder_layers, d_input, d_output, dropout):
+        super(TorchTransformer, self).__init__()
+        self.embedding = nn.Linear(d_input, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        encoder_layer = nn.TransformerEncoderLayer(d_model, n_head, d_ffn, dropout, batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
+        self.out = nn.Linear(d_model, d_output)
+    
+        # Initialize weights
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
+
+    def forward(self, x):
+        # (batch_size, seq_len, d_input)
+        # (batch_size, seq_len, d_model)
+        x = self.embedding(x)
+        x = self.pos_encoder(x)
+        output = self.transformer_encoder(x)
+        # (batch_size, d_model)
+        output = output.mean(dim=1)
+        # (batch_size, d_output)
+        output = self.out(output)
         return output

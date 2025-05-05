@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 
 from dataset import load_ett_data, load_mnist_data
 from utils import *
-from model import TorchTransformer, Transformer
-from HBA import HBATransformer
+# from model import TorchTransformer, Transformer
+from HBA import TorchTransformer, BaseTransformer, LocalHBATransformer, HBATransformer
 
 import torch
 from torch import nn
@@ -44,26 +44,24 @@ class Trainer():
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout)
         elif self.config.model_type == 'Base':
-            model = Transformer(d_model=self.config.d_model,
+            model = BaseTransformer(d_model=self.config.d_model,
                                 n_head=self.config.n_head,
                                 d_ffn=self.config.d_ffn,
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
                                 dropout=self.config.dropout,
-                                d_block=self.config.d_block,
-                                attn='Base')
+                                d_block=self.config.d_block)
+        elif self.config.model_type == 'LocalHBA':
+            model = LocalHBATransformer(d_model=self.config.d_model,
+                                n_head=self.config.n_head,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout,
+                                d_block=self.config.d_block)
         elif self.config.model_type == 'HBA':
-            model = Transformer(d_model=self.config.d_model,
-                                n_head=self.config.n_head,
-                                d_ffn=self.config.d_ffn,
-                                num_encoder_layers=self.config.num_encoder_layers,
-                                d_input=self.config.d_input,
-                                d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                d_block=self.config.d_block,
-                                attn='HBA')
-        elif self.config.model_type == 'FullHBA':
             model = HBATransformer(d_model=self.config.d_model,
                                 n_head=self.config.n_head,
                                 d_ffn=self.config.d_ffn,
@@ -299,7 +297,9 @@ if __name__ == '__main__':
         trainer.train()
     else:
         # seq_lens = [128, 256, 512, 1024, 2048]
-        seq_lens = [64 * i for i in range(1, 9)]
+        seq_lens = [64 * i for i in range(1, 8)]
+        ls = [512 * i for i in range(1, 20)]
+        seq_lens.extend(ls)
         for seq_len in seq_lens:
             config.seq_len = seq_len
             # if config.model_type == 'HBA' and config.d_block == 0:

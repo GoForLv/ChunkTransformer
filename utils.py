@@ -10,7 +10,7 @@ class Config():
     def __init__(self):
         # 数据集配置
         self.dataset: str = 'ETTh1'
-        self.model_type: str = 'FullHBA'  # ['Torch', 'Base', 'HBA']
+        self.model_type: str = 'HBA'  # ['Torch', 'Base', 'HBA']
         
         # 模型维度配置
         self.d_model: int = 64
@@ -166,7 +166,7 @@ class Logger():
         self.config.save(os.path.join(
             'log',
             'config',
-            f"{self.today}-{self.counter}-{self.config.seq_len}.json"
+            f"{self.today}-{self.counter}.json"
         ))
         self.log_file.write(f'Summary:, Min Loss: {min_loss:.4f}, Test Loss: {test_loss:.4f}, Peak Memory: {self.timer._peak_memory:.3f}MB\n')
         self.log_file.write(self.timer.display_record('average'))
@@ -174,7 +174,7 @@ class Logger():
         plt.savefig(os.path.join(
             'log',
             'imglog',
-            f"{self.today}-{self.counter}.png"
+            f"{self.today}-{self.counter}-{self.config.seq_len}.png"
         ))
         torch.save(best_model_state, os.path.join(
             'log',

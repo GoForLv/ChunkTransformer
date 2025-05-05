@@ -45,7 +45,8 @@ class DataProcessor():
         n1 = len(self.data[base][phase])
         n2 = len(self.data[optim][phase])
         n = min(n1, n2)
-        seq_len = [128, 256, 512, 1024, 2048, 3072, 4096][:n]
+        # seq_len = [128, 256, 512, 1024, 2048, 3072, 4096][:n]
+        seq_len = [64 * i for i in range(1, 9)][:n]
         if phase == 'min_loss' or phase == 'fake_loss':
             for i in range(n):
                 self.data[compare][phase].append((self.data[optim][phase][i] - self.data[base][phase][i]) / self.data[base][phase][i] * 100)
@@ -105,7 +106,8 @@ def polyfit(x: list, y: list, n: int) -> list:
 
 def visualize(processor):
     # seq_len = [128, 256, 512, 1024]
-    seq_len = [1, 2, 4, 8]
+    # seq_len = [1, 2, 4, 8]
+    seq_len = [64 * i for i in range(1, 9)]
     num_phases = len(processor.phases)
 
     ncols = 2
@@ -178,8 +180,8 @@ if __name__ == '__main__':
                 processor.add(*row[0:3], *data)
         else:
             # new
-            start_line = 3 - 1
-            end_line = 33
+            start_line = 35 - 1
+            end_line = 95
             step = 2
             # 逐行读取
             for row_idx in range(start_line, end_line, step):

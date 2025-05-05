@@ -245,7 +245,6 @@ class TorchTransformer(nn.Module):
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         encoder_layer = nn.TransformerEncoderLayer(d_model, n_head, d_ffn, dropout, batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
-        # self.transformer_encoder = TransformerEncoder(d_model, n_head, d_ffn, num_encoder_layers, dropout, d_block=8, attn='HBA')
         self.out = nn.Linear(d_model, d_output)
     
         # Initialize weights
