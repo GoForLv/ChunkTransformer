@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 from dataset import load_ett_data, load_mnist_data
 from utils import *
 # from model import TorchTransformer, Transformer
-from HBA import TorchTransformer, BaseTransformer, LocalHBATransformer, HBATransformer
+from HBA import LocalHBATransformer, HBATransformer
+from Base import TorchTransformer, BaseTransformer
+from Linformer import Linformer
 
 import torch
 from torch import nn
