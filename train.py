@@ -110,19 +110,19 @@ class Trainer():
             labels = labels.to(self.device)
 
             # 前向传播
-            self.timer.start("forward")
+            # self.timer.start("forward")
             outputs = self.model(inputs)
-            self.timer.stop("forward")
+            # self.timer.stop("forward")
             
             # 损失计算
             loss = self.criterion(outputs, labels)
             
             # 反向传播
-            self.timer.start("backward")
+            # self.timer.start("backward")
             loss.backward()
             # 梯度裁剪 避免梯度爆炸
             # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.timer.stop("backward")
+            # self.timer.stop("backward")
 
             # 优化
             self.optimizer.step()
