@@ -64,13 +64,19 @@ class MultiheadAttention(nn.Module):
         self.W_V = nn.Linear(d_model, d_model)
         self.W_O = nn.Linear(d_model, d_model)
 
-        # Initialize weights, gain adapt to ReLU
+        self.init_parameters()
+        self.dropout = nn.Dropout(dropout)
+
+    def init_parameters(self):
         nn.init.xavier_uniform_(self.W_Q.weight)
         nn.init.xavier_uniform_(self.W_K.weight)
         nn.init.xavier_uniform_(self.W_V.weight)
         nn.init.xavier_uniform_(self.W_O.weight)
 
-        self.dropout = nn.Dropout(dropout)
+        nn.init.constant_(self.W_Q.bias, 0.)
+        nn.init.constant_(self.W_K.bias, 0.)
+        nn.init.constant_(self.W_V.bias, 0.)
+        nn.init.constant_(self.W_O.bias, 0.)
 
     def forward(self, q, k, v):
         # (batch_size, seq_len, d_model)
@@ -110,12 +116,16 @@ class FeedForward(nn.Module):
         super(FeedForward, self).__init__()
         self.fc1 = nn.Linear(d_model, d_ffn)
         self.fc2 = nn.Linear(d_ffn, d_model)
-    
-        # Initialize weights
+
+        self.init_parameters()
+        self.dropout = nn.Dropout(dropout)
+
+    def init_parameters(self):
         nn.init.xavier_uniform_(self.fc1.weight)
         nn.init.xavier_uniform_(self.fc2.weight)
 
-        self.dropout = nn.Dropout(dropout)
+        nn.init.constant_(self.fc1.bias, 0.)
+        nn.init.constant_(self.fc2.bias, 0.)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -183,12 +193,17 @@ class HBATransformer(nn.Module):
                                            for _ in range(num_encoder_layers)])
         self.out = nn.Linear(d_model, d_output)
 
-        # Initialize weights
-        nn.init.xavier_uniform_(self.embedding.weight)
-        nn.init.xavier_uniform_(self.out.weight)
+        self.init_parameters()
 
         self.d_block = d_block
         self.d_model = d_model
+
+    def init_parameters(self):
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
+
+        nn.init.constant_(self.embedding.bias, 0.)
+        nn.init.constant_(self.out.bias, 0.)
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
@@ -226,12 +241,17 @@ class LocalHBATransformer(nn.Module):
                                            for _ in range(num_encoder_layers)])
         self.out = nn.Linear(d_model, d_output)
 
-        # Initialize weights
-        nn.init.xavier_uniform_(self.embedding.weight)
-        nn.init.xavier_uniform_(self.out.weight)
+        self.init_parameters()
 
         self.d_block = d_block
         self.d_model = d_model
+
+    def init_parameters(self):
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
+
+        nn.init.constant_(self.embedding.bias, 0.)
+        nn.init.constant_(self.out.bias, 0.)
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
@@ -262,9 +282,14 @@ class BaseTransformer(nn.Module):
                                            for _ in range(num_encoder_layers)])
         self.out = nn.Linear(d_model, d_output)
 
-        # Initialize weights
+        self.init_parameters()
+
+    def init_parameters(self):
         nn.init.xavier_uniform_(self.embedding.weight)
         nn.init.xavier_uniform_(self.out.weight)
+
+        nn.init.constant_(self.embedding.bias, 0.)
+        nn.init.constant_(self.out.bias, 0.)
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)
@@ -289,9 +314,14 @@ class TorchTransformer(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_encoder_layers)
         self.out = nn.Linear(d_model, d_output)
     
-        # Initialize weights
+        self.init_parameters()
+    
+    def init_parameters(self):
         nn.init.xavier_uniform_(self.embedding.weight)
         nn.init.xavier_uniform_(self.out.weight)
+
+        nn.init.constant_(self.embedding.bias, 0.)
+        nn.init.constant_(self.out.bias, 0.)
 
     def forward(self, x):
         # (batch_size, seq_len, d_input)

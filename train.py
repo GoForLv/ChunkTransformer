@@ -70,15 +70,15 @@ class Trainer():
                                 d_output=self.config.d_output,
                                 d_block=self.config.d_block,
                                 dropout=self.config.dropout)
-        # elif self.config.model_type == 'Linformer':
-        #     model = Linformer(d_model=self.config.d_model,
-        #                         n_head=self.config.n_head,
-        #                         d_ffn=self.config.d_ffn,
-        #                         num_encoder_layers=self.config.num_encoder_layers,
-        #                         d_input=self.config.d_input,
-        #                         d_output=self.config.d_output,
-        #                         d_block=self.config.d_block,
-        #                         dropout=self.config.dropout)
+        elif self.config.model_type == 'Linformer':
+            model = Linformer(d_model=self.config.d_model,
+                                n_head=self.config.n_head,
+                                d_ffn=self.config.d_ffn,
+                                num_encoder_layers=self.config.num_encoder_layers,
+                                seq_len=self.config.seq_len,
+                                d_input=self.config.d_input,
+                                d_output=self.config.d_output,
+                                dropout=self.config.dropout)
         return model
 
     def _dataloader(self):
@@ -119,19 +119,19 @@ class Trainer():
             labels = labels.to(self.device)
 
             # 前向传播
-            # self.timer.start("forward")
+            self.timer.start("forward")
             outputs = self.model(inputs)
-            # self.timer.stop("forward")
+            self.timer.stop("forward")
             
             # 损失计算
             loss = self.criterion(outputs, labels)
             
             # 反向传播
-            # self.timer.start("backward")
+            self.timer.start("backward")
             loss.backward()
             # 梯度裁剪 避免梯度爆炸
             # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            # self.timer.stop("backward")
+            self.timer.stop("backward")
 
             # 优化
             self.optimizer.step()

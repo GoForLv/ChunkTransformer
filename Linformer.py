@@ -1,6 +1,22 @@
 import torch
 import torch.nn as nn
+
 import math
+
+def softmax(scores: torch.Tensor, dim=-1):
+    """Compute softmax with improved numerical stability.
+    
+    Args:
+        scores: Input tensor containing unnormalized scores
+        dim: Dimension along which softmax will be computed (default: -1)
+    
+    Returns:
+        Tensor with same shape as input, with softmax applied along specified dimension
+    """
+    scores_max, _ = torch.max(scores, dim=dim, keepdim=True)
+    scores_exp = torch.exp(scores - scores_max)
+    attn = scores_exp / (scores_exp.sum(dim=dim, keepdim=True) + 1e-8)
+    return attn
 
 class PositionalEncoding(nn.Module):
     """Inject positional information into input sequences using sine and cosine functions.
@@ -37,8 +53,7 @@ class LinearSelfAttention(nn.Module):
     """
     修改后的线性自注意力层，支持任意d_input维度
     """
-    def __init__(self, d_model, n_head, dropout=0.1,
-                 k_dim=None, share_kv=False, share_projection=False):
+    def __init__(self, d_model, n_head, seq_len, dropout=0.1, k_dim=None, share_kv=False):
         super().__init__()
         self.d_model = d_model
         self.n_head = n_head
@@ -53,49 +68,31 @@ class LinearSelfAttention(nn.Module):
         self.W_V = nn.Linear(d_model, d_model)
         self.W_O = nn.Linear(d_model, d_model)
         
-        # Dropout
+        self.E_proj = nn.Parameter(torch.Tensor(seq_len, self.k_dim))
+        if share_kv:
+            self.F_proj = self.E_proj  # K-V共享
+        else:
+            self.F_proj = nn.Parameter(torch.Tensor(seq_len, self.k_dim))
+
+        self.init_parameters()
         self.dropout = nn.Dropout(dropout)
         
-        # K和V的投影矩阵E和F
-        if share_projection:
-            # 层间共享 - 所有层/头共享单个投影矩阵
-            self.E_proj = nn.Parameter(torch.Tensor(self.k_dim, self.d_model))
-            self.F_proj = nn.Parameter(torch.Tensor(self.k_dim, self.d_model)) if not share_kv else self.E_proj
-        else:
-            # 头间共享 - 每个头单独投影矩阵
-            self.E_proj = nn.Parameter(torch.Tensor(n_head, self.k_dim, self.d_k))
-            if share_kv:
-                self.F_proj = self.E_proj  # K-V共享
-            else:
-                self.F_proj = nn.Parameter(torch.Tensor(n_head, self.k_dim, self.d_k))
+    def init_parameters(self):
+        nn.init.normal_(self.E_proj, mean=0, std=1/math.sqrt(self.k_dim))
+        if not torch.equal(self.E_proj, self.F_proj):
+            nn.init.normal_(self.F_proj, mean=0, std=1/math.sqrt(self.k_dim))
         
-        self.reset_parameters()
-        
-    def reset_parameters(self):
-        # 初始化投影矩阵
         nn.init.xavier_uniform_(self.W_Q.weight)
         nn.init.xavier_uniform_(self.W_K.weight)
         nn.init.xavier_uniform_(self.W_V.weight)
         nn.init.xavier_uniform_(self.W_O.weight)
-        
-        # 初始化E和F为正态分布
-        if hasattr(self.E_proj, 'dim'):
-            if self.E_proj.dim() == 2:  # 层间共享
-                nn.init.normal_(self.E_proj, mean=0, std=1/math.sqrt(self.k_dim))
-                if not torch.equal(self.E_proj, self.F_proj):
-                    nn.init.normal_(self.F_proj, mean=0, std=1/math.sqrt(self.k_dim))
-            else:  # 头间共享
-                nn.init.normal_(self.E_proj, mean=0, std=1/math.sqrt(self.k_dim))
-                if not torch.equal(self.E_proj, self.F_proj):
-                    nn.init.normal_(self.F_proj, mean=0, std=1/math.sqrt(self.k_dim))
-        
-        # 初始化偏置
+
         nn.init.constant_(self.W_Q.bias, 0.)
         nn.init.constant_(self.W_K.bias, 0.)
         nn.init.constant_(self.W_V.bias, 0.)
         nn.init.constant_(self.W_O.bias, 0.)
     
-    def forward(self, x, padding_mask=None):
+    def forward(self, q, k, v):
         """
         输入:
             x: (batch_size, seq_len, d_model)
@@ -104,22 +101,22 @@ class LinearSelfAttention(nn.Module):
             (batch_size, seq_len, d_model)
         """
         # (batch_size, seq_len, d_model)
-        batch_size, seq_len, _ = x.size()
-        Q, K, V = self.W_Q(x), self.W_K(x), self.W_V(x)
+        batch_size = q.size(0)
+        Q, K, V = self.W_Q(q), self.W_K(k), self.W_V(v)
 
         # --> (batch_size, seq_len, n_head, d_k) --> (batch_size, n_head, seq_len, d_k)
         Q = Q.view(batch_size, -1, self.n_head, self.d_k).transpose(1, 2)
         K = K.view(batch_size, -1, self.n_head, self.d_k).transpose(1, 2)
         V = V.view(batch_size, -1, self.n_head, self.d_v).transpose(1, 2)
         
-        # --> (batch_size, n_head, d_k, seq_len)
-        # torch.Tensor(n_head, self.k_dim, self.d_k)
-        # --> (batch_size, n_head, k_dim, d_k)
-        K.transpose(2, 3)
+        # --> (batch_size, n_head, d_k, seq_len) --> (batch_size, n_head, d_k, k_dim)
+        K = torch.matmul(K.transpose(2, 3), self.E_proj)
+        # --> (batch_size, n_head, k_dim, d_v)
+        V = torch.matmul(V.transpose(2, 3), self.F_proj).transpose(-2, -1)
         
-        # (batch_size, n_head, seq_len, seq_len)
-        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
-        attn_weight = torch.softmax(scores)
+        # (batch_size, n_head, seq_len, k_dim)
+        scores = torch.matmul(Q / math.sqrt(self.d_k), K)
+        attn_weight = softmax(scores)
 
         # Apply dropout
         attn_weight = self.dropout(attn_weight)
@@ -142,12 +139,16 @@ class PositionwiseFeedForward(nn.Module):
         self.fc1 = nn.Linear(d_model, d_ffn)
         self.fc2 = nn.Linear(d_ffn, d_model)
 
-        # Initialize weights
+        self.init_parameters()
+        self.dropout = nn.Dropout(dropout)
+
+    def init_parameters(self):
         nn.init.xavier_uniform_(self.fc1.weight)
         nn.init.xavier_uniform_(self.fc2.weight)
 
-        self.dropout = nn.Dropout(dropout)
-        
+        nn.init.constant_(self.fc1.bias, 0.)
+        nn.init.constant_(self.fc2.bias, 0.)
+
     def forward(self, x):
         return self.fc2(self.dropout(torch.relu(self.fc1(x))))
 
@@ -155,11 +156,11 @@ class LinformerLayer(nn.Module):
     """
     Linformer层
     """
-    def __init__(self, d_model, n_head, d_ffn, dropout, 
-                 k_dim=None, share_kv=False, share_projection=False):
+    def __init__(self, d_model, n_head, d_ffn, seq_len, dropout, 
+                 k_dim=None, share_kv=False):
         super().__init__()
         self.self_attn = LinearSelfAttention(
-            d_model, n_head, dropout, k_dim, share_kv, share_projection
+            d_model, n_head, seq_len, dropout, k_dim, share_kv
         )
         self.ffn = PositionwiseFeedForward(d_model, d_ffn, dropout)
         self.norm1 = nn.LayerNorm(d_model)
@@ -167,9 +168,9 @@ class LinformerLayer(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         
-    def forward(self, x, padding_mask=None):
+    def forward(self, x):
         # 自注意力 + 残差
-        attn_output = self.self_attn(x, padding_mask)
+        attn_output = self.self_attn(x, x, x)
         x = x + self.dropout1(attn_output)
         x = self.norm1(x)
         
@@ -185,21 +186,24 @@ class Linformer(nn.Module):
     修改后的Linformer，支持(batch_size, seq_len, d_input)输入
     """
     def __init__(self, d_model, n_head, d_ffn, num_encoder_layers,
-                 d_input, d_output, dropout, k_dim=None, 
-                 share_kv=False, share_projection=False):
+                 seq_len, d_input, d_output, dropout, k_dim=None, share_kv=False):
         super().__init__()
         self.embedding = nn.Linear(d_input, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
-        self.layers = nn.ModuleList([LinformerLayer(d_model, n_head, d_ffn, dropout, k_dim, share_kv, share_projection)
+        self.layers = nn.ModuleList([LinformerLayer(d_model, n_head, d_ffn, seq_len, dropout, k_dim, share_kv)
                                         for _ in range(num_encoder_layers)])
         self.out = nn.Linear(d_model, d_output)
 
-        
-        # 初始化权重
+        self.init_parameters()
+    
+    def init_parameters(self):
         nn.init.xavier_uniform_(self.embedding.weight)
         nn.init.xavier_uniform_(self.out.weight)
-        
-    def forward(self, x, padding_mask=None):
+
+        nn.init.constant_(self.embedding.bias, 0.)
+        nn.init.constant_(self.out.bias, 0.)
+
+    def forward(self, x):
         """
         输入:
             x: (batch_size, seq_len, d_input)
@@ -212,18 +216,17 @@ class Linformer(nn.Module):
         # (batch_size, seq_len, d_model)
         x = self.pos_encoder(x)
         for layer in self.layers:
-            x = layer(x, padding_mask)
+            x = layer(x)
         # (batch_size, d_model)
         output = x.mean(dim=1)
         # (batch_size, d_output)
         output = self.out(output)
         return output
 
-# 使用示例
 if __name__ == "__main__":
 
-    x = torch.arange(40).reshape(2, 4, 5)
-    z = torch.arange(20).reshape(5, 4)
+    x = torch.arange(120).reshape(2, 3, 4, 5)
+    z = torch.arange(50).reshape(5, 10)
     # y = torch.arange(720).reshape(2, 3, 5, 4)
     x = torch.matmul(x, z)
     print(x.shape)
@@ -237,17 +240,15 @@ if __name__ == "__main__":
     dropout = 0.1
     k_dim = 128  # 投影维度
     share_kv = True  # 共享K和V投影
-    share_projection = True  # 层间共享投影矩阵
-    
-    # 创建模型
-    model = Linformer(
-        d_model, n_head, d_ffn, num_encoder_layers,
-        d_input, d_input, dropout, k_dim, share_kv, share_projection
-    )
-    
-    # 示例输入 (batch_size=32, seq_len=128, d_input=768)
     batch_size = 32
     seq_len = 128
+
+    # 创建模型
+    model = Linformer(
+        d_model, n_head, d_ffn, num_encoder_layers, seq_len,
+        d_input, d_output, dropout, k_dim, share_kv)
+    
+    # 示例输入 (batch_size=32, seq_len=128, d_input=768)
     example_input = torch.randn(batch_size, seq_len, d_input)
 
     # 前向传播
