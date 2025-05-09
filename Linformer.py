@@ -1,168 +1,179 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import math
+
+class PositionalEncoding(nn.Module):
+    """Inject positional information into input sequences using sine and cosine functions.
+    
+    Args:
+        d_model: Dimension of the model embeddings
+        dropout: Dropout probability
+        max_len: Maximum length of input sequences (default: 4096)
+    """
+    def __init__(self, d_model, dropout, max_len=4096):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        # (max_len, d_model)
+        pe = torch.zeros(max_len, d_model)
+        # (max_len, 1)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        # (d_model / 2)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        # (1, max_len, d_model)
+        pe = pe.unsqueeze(0)
+        # 缓冲区 不更新参数
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        assert self.pe.size(1) >= x.size(1), 'max_len < seq_len!'
+        
+        # (batch_size, seq_len, d_model)
+        x = x + self.pe[:, :x.size(1), :]
+        return self.dropout(x)
 
 class LinearSelfAttention(nn.Module):
     """
-    Linear self-attention mechanism as described in the Linformer paper.
+    修改后的线性自注意力层，支持任意d_input维度
     """
-    def __init__(self, embed_dim, num_heads, k_dim=None, dropout=0.1, 
-                 share_kv=False, share_projection=False):
+    def __init__(self, d_model, n_head, dropout=0.1,
+                 k_dim=None, share_kv=False, share_projection=False):
         super().__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-        self.scaling = math.sqrt(self.head_dim)
+        self.d_model = d_model
+        self.n_head = n_head
+        self.d_k = d_model // n_head
+        self.d_v = self.d_k
+
+        # 投影维度(k)，默认为d_k
+        self.k_dim = k_dim if k_dim is not None else self.d_k
         
-        # Projection dimension (k) - defaults to head_dim as in paper
-        self.k_dim = k_dim if k_dim is not None else self.head_dim
-        
-        # Projection matrices for Q, K, V
-        self.q_proj = nn.Linear(embed_dim, embed_dim)
-        self.k_proj = nn.Linear(embed_dim, embed_dim)
-        self.v_proj = nn.Linear(embed_dim, embed_dim)
-        
-        # Output projection
-        self.out_proj = nn.Linear(embed_dim, embed_dim)
+        self.W_Q = nn.Linear(d_model, d_model)
+        self.W_K = nn.Linear(d_model, d_model)
+        self.W_V = nn.Linear(d_model, d_model)
+        self.W_O = nn.Linear(d_model, d_model)
         
         # Dropout
         self.dropout = nn.Dropout(dropout)
         
-        # Projection matrices E and F for K and V
+        # K和V的投影矩阵E和F
         if share_projection:
-            # Layerwise sharing - single projection matrix shared across all heads/layers
-            self.E_proj = nn.Parameter(torch.Tensor(self.k_dim, embed_dim))
-            self.F_proj = nn.Parameter(torch.Tensor(self.k_dim, embed_dim)) if not share_kv else self.E_proj
+            # 层间共享 - 所有层/头共享单个投影矩阵
+            self.E_proj = nn.Parameter(torch.Tensor(self.k_dim, self.d_model))
+            self.F_proj = nn.Parameter(torch.Tensor(self.k_dim, self.d_model)) if not share_kv else self.E_proj
         else:
-            # Headwise sharing - separate projections per head
-            self.E_proj = nn.Parameter(torch.Tensor(num_heads, self.k_dim, self.head_dim))
+            # 头间共享 - 每个头单独投影矩阵
+            self.E_proj = nn.Parameter(torch.Tensor(n_head, self.k_dim, self.d_k))
             if share_kv:
-                self.F_proj = self.E_proj  # Key-value sharing
+                self.F_proj = self.E_proj  # K-V共享
             else:
-                self.F_proj = nn.Parameter(torch.Tensor(num_heads, self.k_dim, self.head_dim))
+                self.F_proj = nn.Parameter(torch.Tensor(n_head, self.k_dim, self.d_k))
         
         self.reset_parameters()
         
     def reset_parameters(self):
-        # Initialize projections like in original Transformer
-        nn.init.xavier_uniform_(self.q_proj.weight)
-        nn.init.xavier_uniform_(self.k_proj.weight)
-        nn.init.xavier_uniform_(self.v_proj.weight)
-        nn.init.xavier_uniform_(self.out_proj.weight)
+        # 初始化投影矩阵
+        nn.init.xavier_uniform_(self.W_Q.weight)
+        nn.init.xavier_uniform_(self.W_K.weight)
+        nn.init.xavier_uniform_(self.W_V.weight)
+        nn.init.xavier_uniform_(self.W_O.weight)
         
-        # Initialize E and F with random normal as suggested in paper
+        # 初始化E和F为正态分布
         if hasattr(self.E_proj, 'dim'):
-            if self.E_proj.dim() == 2:  # Layerwise sharing
+            if self.E_proj.dim() == 2:  # 层间共享
                 nn.init.normal_(self.E_proj, mean=0, std=1/math.sqrt(self.k_dim))
                 if not torch.equal(self.E_proj, self.F_proj):
                     nn.init.normal_(self.F_proj, mean=0, std=1/math.sqrt(self.k_dim))
-            else:  # Headwise sharing
+            else:  # 头间共享
                 nn.init.normal_(self.E_proj, mean=0, std=1/math.sqrt(self.k_dim))
                 if not torch.equal(self.E_proj, self.F_proj):
                     nn.init.normal_(self.F_proj, mean=0, std=1/math.sqrt(self.k_dim))
         
-        # Initialize biases
-        nn.init.constant_(self.q_proj.bias, 0.)
-        nn.init.constant_(self.k_proj.bias, 0.)
-        nn.init.constant_(self.v_proj.bias, 0.)
-        nn.init.constant_(self.out_proj.bias, 0.)
+        # 初始化偏置
+        nn.init.constant_(self.W_Q.bias, 0.)
+        nn.init.constant_(self.W_K.bias, 0.)
+        nn.init.constant_(self.W_V.bias, 0.)
+        nn.init.constant_(self.W_O.bias, 0.)
     
     def forward(self, x, padding_mask=None):
         """
-        Args:
-            x: Input tensor of shape (batch_size, seq_len, embed_dim)
-            padding_mask: ByteTensor of shape (batch_size, seq_len) where 1 means padding
-        Returns:
-            Output tensor of shape (batch_size, seq_len, embed_dim)
+        输入:
+            x: (batch_size, seq_len, d_model)
+            padding_mask: (batch_size, seq_len), 1表示padding位置
+        输出:
+            (batch_size, seq_len, d_model)
         """
-        batch_size, seq_len, embed_dim = x.size()
+        # (batch_size, seq_len, d_model)
+        batch_size, seq_len, _ = x.size()
+        Q, K, V = self.W_Q(x), self.W_K(x), self.W_V(x)
+
+        # --> (batch_size, seq_len, n_head, d_k) --> (batch_size, n_head, seq_len, d_k)
+        Q = Q.view(batch_size, -1, self.n_head, self.d_k).transpose(1, 2)
+        K = K.view(batch_size, -1, self.n_head, self.d_k).transpose(1, 2)
+        V = V.view(batch_size, -1, self.n_head, self.d_v).transpose(1, 2)
         
-        # Project queries, keys, values
-        q = self.q_proj(x)  # (batch_size, seq_len, embed_dim)
-        k = self.k_proj(x)  # (batch_size, seq_len, embed_dim)
-        v = self.v_proj(x)  # (batch_size, seq_len, embed_dim)
+        # --> (batch_size, n_head, d_k, seq_len)
+        # torch.Tensor(n_head, self.k_dim, self.d_k)
+        # --> (batch_size, n_head, k_dim, d_k)
+        K.transpose(2, 3)
         
-        # Reshape to separate heads
-        q = q.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)  # (batch_size, num_heads, seq_len, head_dim)
-        k = k.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)  # (batch_size, num_heads, seq_len, head_dim)
-        v = v.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)  # (batch_size, num_heads, seq_len, head_dim)
-        
-        # Apply linear projections E and F to keys and values
-        if hasattr(self.E_proj, 'dim') and self.E_proj.dim() == 3:  # Headwise sharing
-            # Project keys: (batch_size, num_heads, seq_len, head_dim) -> (batch_size, num_heads, k_dim, head_dim)
-            k = torch.einsum('bhnd,hkd->bhkn', k, self.E_proj)  # (batch_size, num_heads, k_dim, head_dim)
-            # Project values: (batch_size, num_heads, seq_len, head_dim) -> (batch_size, num_heads, k_dim, head_dim)
-            v = torch.einsum('bhnd,hkd->bhkn', v, self.F_proj)  # (batch_size, num_heads, k_dim, head_dim)
-        else:  # Layerwise sharing
-            # Project keys: (batch_size, num_heads, seq_len, head_dim) -> (batch_size, num_heads, k_dim, head_dim)
-            k = k.transpose(1, 2).reshape(-1, seq_len, self.head_dim)  # (batch_size*num_heads, seq_len, head_dim)
-            k = torch.einsum('bnd,kd->bnk', k, self.E_proj)  # (batch_size*num_heads, seq_len, k_dim)
-            k = k.reshape(batch_size, self.num_heads, seq_len, self.k_dim).transpose(2, 3)  # (batch_size, num_heads, k_dim, seq_len)
-            
-            # Project values: (batch_size, num_heads, seq_len, head_dim) -> (batch_size, num_heads, k_dim, head_dim)
-            v = v.transpose(1, 2).reshape(-1, seq_len, self.head_dim)  # (batch_size*num_heads, seq_len, head_dim)
-            v = torch.einsum('bnd,kd->bnk', v, self.F_proj)  # (batch_size*num_heads, seq_len, k_dim)
-            v = v.reshape(batch_size, self.num_heads, seq_len, self.k_dim).transpose(2, 3)  # (batch_size, num_heads, k_dim, seq_len)
-        
-        # Compute attention scores
-        attn_scores = torch.matmul(q / self.scaling, k.transpose(-2, -1))  # (batch_size, num_heads, seq_len, k_dim)
-        
-        # Apply padding mask if provided
-        if padding_mask is not None:
-            # Expand mask to match attention scores shape
-            padding_mask = padding_mask.unsqueeze(1).unsqueeze(2)  # (batch_size, 1, 1, seq_len)
-            attn_scores = attn_scores.masked_fill(padding_mask, float('-inf'))
-        
-        # Compute attention weights
-        attn_weights = F.softmax(attn_scores, dim=-1)
-        attn_weights = self.dropout(attn_weights)
-        
-        # Compute context vectors
-        context = torch.matmul(attn_weights, v)  # (batch_size, num_heads, seq_len, head_dim)
-        
-        # Concatenate heads and project back to embedding dimension
-        context = context.transpose(1, 2).contiguous().view(batch_size, seq_len, embed_dim)
-        output = self.out_proj(context)
-        
+        # (batch_size, n_head, seq_len, seq_len)
+        scores = torch.matmul(Q / math.sqrt(self.d_k), K.transpose(-2, -1))
+        attn_weight = torch.softmax(scores)
+
+        # Apply dropout
+        attn_weight = self.dropout(attn_weight)
+
+        # (batch_size, n_head, seq_len, d_v)
+        attn = torch.matmul(attn_weight, V)
+
+        # --> (batch_size, seq_len, n_head, d_v) --> (batch_size, seq_len, d_model)
+        output = attn.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
+        # (batch_size, seq_len, d_model)
+        output = self.W_O(output)
         return output
 
 class PositionwiseFeedForward(nn.Module):
     """
-    Position-wise feed-forward network as in original Transformer.
+    位置前馈网络
     """
-    def __init__(self, embed_dim, hidden_dim, dropout=0.1):
+    def __init__(self, d_model, d_ffn, dropout=0.1):
         super().__init__()
-        self.fc1 = nn.Linear(embed_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, embed_dim)
+        self.fc1 = nn.Linear(d_model, d_ffn)
+        self.fc2 = nn.Linear(d_ffn, d_model)
+
+        # Initialize weights
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+
         self.dropout = nn.Dropout(dropout)
         
     def forward(self, x):
-        return self.fc2(self.dropout(F.gelu(self.fc1(x))))
+        return self.fc2(self.dropout(torch.relu(self.fc1(x))))
 
 class LinformerLayer(nn.Module):
     """
-    A single Linformer layer consisting of linear self-attention and feed-forward network.
+    Linformer层
     """
-    def __init__(self, embed_dim, num_heads, ff_dim, dropout=0.1, 
+    def __init__(self, d_model, n_head, d_ffn, dropout, 
                  k_dim=None, share_kv=False, share_projection=False):
         super().__init__()
         self.self_attn = LinearSelfAttention(
-            embed_dim, num_heads, k_dim, dropout, share_kv, share_projection
+            d_model, n_head, dropout, k_dim, share_kv, share_projection
         )
-        self.ffn = PositionwiseFeedForward(embed_dim, ff_dim, dropout)
-        self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(embed_dim)
+        self.ffn = PositionwiseFeedForward(d_model, d_ffn, dropout)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         
     def forward(self, x, padding_mask=None):
-        # Self-attention with residual connection
+        # 自注意力 + 残差
         attn_output = self.self_attn(x, padding_mask)
         x = x + self.dropout1(attn_output)
         x = self.norm1(x)
         
-        # Feed-forward with residual connection
+        # FFN + 残差
         ffn_output = self.ffn(x)
         x = x + self.dropout2(ffn_output)
         x = self.norm2(x)
@@ -171,97 +182,74 @@ class LinformerLayer(nn.Module):
 
 class Linformer(nn.Module):
     """
-    Linformer model for sequence prediction tasks.
+    修改后的Linformer，支持(batch_size, seq_len, d_input)输入
     """
-    def __init__(self, vocab_size, embed_dim, num_layers, num_heads, ff_dim, 
-                 max_seq_len=512, dropout=0.1, k_dim=None, 
+    def __init__(self, d_model, n_head, d_ffn, num_encoder_layers,
+                 d_input, d_output, dropout, k_dim=None, 
                  share_kv=False, share_projection=False):
         super().__init__()
-        self.embed_dim = embed_dim
-        self.token_embedding = nn.Embedding(vocab_size, embed_dim)
-        self.position_embedding = nn.Embedding(max_seq_len, embed_dim)
+        self.embedding = nn.Linear(d_input, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.layers = nn.ModuleList([LinformerLayer(d_model, n_head, d_ffn, dropout, k_dim, share_kv, share_projection)
+                                        for _ in range(num_encoder_layers)])
+        self.out = nn.Linear(d_model, d_output)
+
         
-        # Create Linformer layers
-        self.layers = nn.ModuleList([
-            LinformerLayer(
-                embed_dim, num_heads, ff_dim, dropout, 
-                k_dim, share_kv, share_projection
-            )
-            for _ in range(num_layers)
-        ])
+        # 初始化权重
+        nn.init.xavier_uniform_(self.embedding.weight)
+        nn.init.xavier_uniform_(self.out.weight)
         
-        # Output layer
-        self.output_layer = nn.Linear(embed_dim, vocab_size)
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
-        
-        # Initialize weights
-        self.reset_parameters()
-        
-    def reset_parameters(self):
-        nn.init.normal_(self.token_embedding.weight, mean=0, std=self.embed_dim**-0.5)
-        nn.init.normal_(self.position_embedding.weight, mean=0, std=self.embed_dim**-0.5)
-        nn.init.xavier_uniform_(self.output_layer.weight)
-        nn.init.constant_(self.output_layer.bias, 0.)
-        
-    def forward(self, input_ids, padding_mask=None):
+    def forward(self, x, padding_mask=None):
         """
-        Args:
-            input_ids: LongTensor of shape (batch_size, seq_len)
-            padding_mask: ByteTensor of shape (batch_size, seq_len) where 1 means padding
-        Returns:
-            logits: FloatTensor of shape (batch_size, seq_len, vocab_size)
+        输入:
+            x: (batch_size, seq_len, d_input)
+            padding_mask: (batch_size, seq_len), 1表示padding位置
+        输出:
+            (batch_size, seq_len, d_input)
         """
-        batch_size, seq_len = input_ids.size()
-        
-        # Create position ids
-        position_ids = torch.arange(seq_len, dtype=torch.long, device=input_ids.device)
-        position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
-        
-        # Get token and position embeddings
-        token_embeddings = self.token_embedding(input_ids)
-        position_embeddings = self.position_embedding(position_ids)
-        
-        # Combine embeddings
-        x = token_embeddings + position_embeddings
-        x = self.dropout(x)
-        
-        # Pass through each Linformer layer
+        # (batch_size, seq_len, d_input)
+        x = self.embedding(x)
+        # (batch_size, seq_len, d_model)
+        x = self.pos_encoder(x)
         for layer in self.layers:
             x = layer(x, padding_mask)
-        
-        # Get output logits
-        logits = self.output_layer(x)
-        
-        return logits
+        # (batch_size, d_model)
+        output = x.mean(dim=1)
+        # (batch_size, d_output)
+        output = self.out(output)
+        return output
 
-# Example usage
+# 使用示例
 if __name__ == "__main__":
-    # Hyperparameters
-    vocab_size = 10000
-    embed_dim = 512
-    num_layers = 6
-    num_heads = 8
-    ff_dim = 2048
-    max_seq_len = 512
+
+    x = torch.arange(40).reshape(2, 4, 5)
+    z = torch.arange(20).reshape(5, 4)
+    # y = torch.arange(720).reshape(2, 3, 5, 4)
+    x = torch.matmul(x, z)
+    print(x.shape)
+    # 参数配置
+    d_input = 7
+    d_output = 7
+    d_model = 512
+    num_encoder_layers = 6
+    n_head = 8
+    d_ffn = 3072  # 通常为4*d_input
     dropout = 0.1
-    k_dim = 128  # Projection dimension (k) - can be much smaller than sequence length
-    share_kv = True  # Share key and value projections
-    share_projection = True  # Layerwise sharing of projection matrices
+    k_dim = 128  # 投影维度
+    share_kv = True  # 共享K和V投影
+    share_projection = True  # 层间共享投影矩阵
     
-    # Create model
+    # 创建模型
     model = Linformer(
-        vocab_size, embed_dim, num_layers, num_heads, ff_dim,
-        max_seq_len, dropout, k_dim, share_kv, share_projection
+        d_model, n_head, d_ffn, num_encoder_layers,
+        d_input, d_input, dropout, k_dim, share_kv, share_projection
     )
     
-    # Example input
+    # 示例输入 (batch_size=32, seq_len=128, d_input=768)
     batch_size = 32
     seq_len = 128
-    input_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
-    padding_mask = torch.zeros(batch_size, seq_len, dtype=torch.bool)  # Example: no padding
-    
-    # Forward pass
-    logits = model(input_ids, padding_mask)
-    print("Output logits shape:", logits.shape)  # Should be (32, 128, 10000)
+    example_input = torch.randn(batch_size, seq_len, d_input)
+
+    # 前向传播
+    output = model(example_input)
+    print("输出形状:", output.shape)  # 应该是 (32, 7)

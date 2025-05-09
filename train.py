@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 from dataset import load_ett_data, load_mnist_data
 from utils import *
 # from model import TorchTransformer, Transformer
-from HBA import LocalHBATransformer, HBATransformer
-from Base import TorchTransformer, BaseTransformer
+from HBA import TorchTransformer, BaseTransformer, LocalHBATransformer, HBATransformer
 from Linformer import Linformer
 
 import torch
@@ -52,8 +51,7 @@ class Trainer():
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                d_block=self.config.d_block)
+                                dropout=self.config.dropout)
         elif self.config.model_type == 'LocalHBA':
             model = LocalHBATransformer(d_model=self.config.d_model,
                                 n_head=self.config.n_head,
@@ -61,8 +59,8 @@ class Trainer():
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                d_block=self.config.d_block)
+                                d_block=self.config.d_block,
+                                dropout=self.config.dropout)
         elif self.config.model_type == 'HBA':
             model = HBATransformer(d_model=self.config.d_model,
                                 n_head=self.config.n_head,
@@ -70,8 +68,17 @@ class Trainer():
                                 num_encoder_layers=self.config.num_encoder_layers,
                                 d_input=self.config.d_input,
                                 d_output=self.config.d_output,
-                                dropout=self.config.dropout,
-                                d_block=self.config.d_block)
+                                d_block=self.config.d_block,
+                                dropout=self.config.dropout)
+        # elif self.config.model_type == 'Linformer':
+        #     model = Linformer(d_model=self.config.d_model,
+        #                         n_head=self.config.n_head,
+        #                         d_ffn=self.config.d_ffn,
+        #                         num_encoder_layers=self.config.num_encoder_layers,
+        #                         d_input=self.config.d_input,
+        #                         d_output=self.config.d_output,
+        #                         d_block=self.config.d_block,
+        #                         dropout=self.config.dropout)
         return model
 
     def _dataloader(self):
