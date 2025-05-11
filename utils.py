@@ -14,7 +14,7 @@ class Config():
         
         # 模型维度配置
         self.d_model: int = 64
-        self.d_ffn: int = 256
+        self.d_ffn: int = 512
         self.d_input: int = 7
         self.d_output: int = 7
         

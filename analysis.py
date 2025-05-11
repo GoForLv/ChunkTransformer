@@ -111,8 +111,8 @@ def visualize(processor):
     # seq_len = [1, 2, 4, 8]
     # seq_len = [64 * i for i in range(1, 9)]
     seq_len = [64 * i for i in range(1, 8)]
-    ls = [512 * i for i in range(1, 20)]
-    seq_len.extend(ls)
+    # ls = [512 * i for i in range(1, 20)]
+    # seq_len.extend(ls)
     num_phases = len(processor.phases)
 
     ncols = 2
@@ -163,14 +163,14 @@ if __name__ == '__main__':
     # models = ['Base', 'Torch', 'HBA_16']
 
     # 新数据 所有模型对比
-    models = ['Base', 'Torch', 'LocalHBA', 'HBA']
+    models = ['Base', 'Torch', 'HBA', 'LocalHBA', 'Linformer']
     # models = ['Base', 'Torch', 'HBA', 'HBA_8', 'HBA_16', 'HBA_32', 'HBA_64']
 
     # 验证加速比
     # models = ['Base', 'HBA_8', 'HBA_8/Base', 'Torch', 'Torch/Base']
     processor = DataProcessor(models)
 
-    with open('log\csvlog\\05-06.csv', 'r', encoding='utf-8') as csvfile:
+    with open('log\csvlog\\05-11.csv', 'r', encoding='utf-8') as csvfile:
         # 创建csv阅读器
         csv_reader = list(csv.reader(csvfile))
         if False:
@@ -186,7 +186,7 @@ if __name__ == '__main__':
         else:
             # new
             start_line = 3 - 1
-            end_line = 91
+            end_line = 113
             step = 2
             # 逐行读取
             for row_idx in range(start_line, end_line, step):
