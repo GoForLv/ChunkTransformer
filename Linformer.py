@@ -159,7 +159,7 @@ class LinformerLayer(nn.Module):
     def __init__(self, d_model, n_head, d_ffn, seq_len, dropout, 
                  k_dim=None, share_kv=False):
         super().__init__()
-        self.self_attn = LinearSelfAttention(
+        self.attn = LinearSelfAttention(
             d_model, n_head, seq_len, dropout, k_dim, share_kv
         )
         self.ffn = PositionwiseFeedForward(d_model, d_ffn, dropout)
@@ -169,16 +169,14 @@ class LinformerLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         
     def forward(self, x):
-        # 自注意力 + 残差
-        attn_output = self.self_attn(x, x, x)
-        x = x + self.dropout1(attn_output)
-        x = self.norm1(x)
-        
-        # FFN + 残差
-        ffn_output = self.ffn(x)
-        x = x + self.dropout2(ffn_output)
-        x = self.norm2(x)
-        
+        # Pre-LN: SubLayer(x) = x + Dropout(Sublayer(LayerNorm(x)))
+        x_norm1 = self.norm1(x)
+        attn = self.attn(x_norm1, x_norm1, x_norm1)
+        x = x + self.dropout1(attn)
+
+        x_norm2 = self.norm2(x)
+        ffn = self.ffn(x_norm2)
+        x = x + self.dropout2(ffn)
         return x
 
 class Linformer(nn.Module):

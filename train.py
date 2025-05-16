@@ -305,13 +305,16 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        # seq_lens = [128, 256, 512, 1024, 2048]
-        seq_lens = [64 * i for i in range(1, 8)]
-        ls = [512 * i for i in range(1, 20)]
-        seq_lens.extend(ls)
+        seq_lens = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+        # seq_lens = [64 * i for i in range(1, 8)]
+        # ls = [512 * i for i in range(1, 20)]
+        # seq_lens.extend(ls)
+        d_ffns = [64, 128, 256]
         for seq_len in seq_lens:
-            config.seq_len = seq_len
-            # if config.model_type == 'HBA' and config.d_block == 0:
-            #     config.d_block = int(math.log(seq_len, 2))
-            trainer = Trainer(config, timer, logger)
-            trainer.train()
+            for d_ffn in d_ffns:
+                config.seq_len = seq_len
+                config.d_ffn = d_ffn
+                # if config.model_type == 'HBA' and config.d_block == 0:
+                #     config.d_block = int(math.log(seq_len, 2))
+                trainer = Trainer(config, timer, logger)
+                trainer.train()

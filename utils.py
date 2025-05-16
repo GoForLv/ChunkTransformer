@@ -13,8 +13,8 @@ class Config():
         self.model_type: str = 'HBA'  # ['Torch', 'Base', 'HBA']
         
         # 模型维度配置
-        self.d_model: int = 64
-        self.d_ffn: int = 512
+        self.d_model: int = 32
+        self.d_ffn: int = 256
         self.d_input: int = 7
         self.d_output: int = 7
         
@@ -33,8 +33,8 @@ class Config():
         self.d_block=8
 
         # 模型超参数
-        self.n_head=8
-        self.num_encoder_layers=6
+        self.n_head=4
+        self.num_encoder_layers=4
 
         # 验证参数合法性
         self._validate()
@@ -191,8 +191,8 @@ class Logger():
         is_empty = not os.path.exists(log_path) or os.stat(log_path).st_size == 0
         with open(log_path, 'a', encoding='utf-8') as log:
             if is_empty:
-                log.write('log_path,model,seq_len,d_block,train,forward,backward,validate,min_loss,test_loss,peak_memory/MB\n')
-            log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},"
+                log.write('log_path,model,seq_len,d_block,d_ffn,train,forward,backward,validate,min_loss,test_loss,peak_memory/MB\n')
+            log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},{self.config.d_ffn}"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
                     f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
                     f"{min_loss},{test_loss},{self.timer._peak_memory}\n")
