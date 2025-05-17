@@ -83,7 +83,7 @@ class Trainer():
 
     def _dataloader(self):
         if self.config.dataset == 'MNIST':
-            train_dataset, self.test_dataset = load_mnist_data()
+            train_dataset, val_dataset, self.test_dataset, mean, std = load_mnist_data()
             val_dataset = self.test_dataset
         elif self.config.dataset.startswith('ETT'):
             train_dataset, val_dataset, self.test_dataset, mean, std = load_ett_data(
@@ -305,7 +305,7 @@ if __name__ == '__main__':
         trainer = Trainer(config, timer, logger)
         trainer.train()
     else:
-        seq_lens = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+        seq_lens = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
         # seq_lens = [64 * i for i in range(1, 8)]
         # ls = [512 * i for i in range(1, 20)]
         # seq_lens.extend(ls)
