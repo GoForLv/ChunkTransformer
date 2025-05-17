@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from HBA import BaseTransformer
+
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -118,7 +120,7 @@ class VisionTransformer(nn.Module):
         
         # 分类token和位置编码
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim))
         self.pos_drop = nn.Dropout(dropout)
         
         # Transformer blocks
@@ -151,8 +153,8 @@ class VisionTransformer(nn.Module):
         x = self.patch_embed(x)  # [B, N, E]
         
         # 添加分类token
-        cls_token = self.cls_token.expand(B, -1, -1)  # [B, 1, E]
-        x = torch.cat((cls_token, x), dim=1)  # [B, N+1, E]
+        # cls_token = self.cls_token.expand(B, -1, -1)  # [B, 1, E]
+        # x = torch.cat((cls_token, x), dim=1)  # [B, N+1, E]
         
         # 添加位置编码
         x = x + self.pos_embed
@@ -164,20 +166,30 @@ class VisionTransformer(nn.Module):
         
         # 分类
         x = self.norm(x)
-        cls_token_final = x[:, 0]  # 只取分类token
+        cls_token_final = x.mean(dim=1)  # 只取分类token
         x = self.head(cls_token_final)
         return x
 
 # 初始化模型
-model = VisionTransformer(
-    img_size=32,
-    patch_size=4,
-    in_channels=1,
-    num_classes=10,
-    embed_dim=64,
-    depth=6,
-    num_heads=8,
-    mlp_ratio=4,
+# model = VisionTransformer(
+#     img_size=32,
+#     patch_size=4,
+#     in_channels=1,
+#     num_classes=10,
+#     embed_dim=64,
+#     depth=6,
+#     num_heads=8,
+#     mlp_ratio=4,
+#     dropout=0.1
+# ).to(device)
+
+model = BaseTransformer(
+    d_model=64,
+    n_head=4,
+    d_ffn=256,
+    num_encoder_layers=4,
+    d_input=0,
+    d_output=10,
     dropout=0.1
 ).to(device)
 

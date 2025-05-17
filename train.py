@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 from dataset import load_ett_data, load_mnist_data
-from utils import *
+from utils import Timer, Logger, Config
 # from model import TorchTransformer, Transformer
 from HBA import TorchTransformer, BaseTransformer, LocalHBATransformer, HBATransformer
 from Linformer import Linformer

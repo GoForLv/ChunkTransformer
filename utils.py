@@ -1,10 +1,87 @@
 import torch
+from torch import nn
 
+import math
 import json
 from datetime import datetime
 import time
 import os
 import matplotlib.pyplot as plt
+
+def softmax(scores: torch.Tensor, dim=-1):
+    """Compute softmax with improved numerical stability.
+    
+    Args:
+        scores: Input tensor containing unnormalized scores
+        dim: Dimension along which softmax will be computed (default: -1)
+    
+    Returns:
+        Tensor with same shape as input, with softmax applied along specified dimension
+    """
+    scores_max, _ = torch.max(scores, dim=dim, keepdim=True)
+    scores_exp = torch.exp(scores - scores_max)
+    attn = scores_exp / (scores_exp.sum(dim=dim, keepdim=True) + 1e-8)
+    return attn
+
+class PatchEmbedding(nn.Module):
+    """将图像分割为patch并嵌入"""
+    def __init__(self, embed_dim, img_size=32, patch_size=4, in_channels=1, dropout=0.1):
+        super().__init__()
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.n_patches = (img_size // patch_size) ** 2
+        
+        # use Conv2D to patch cutting and embedding
+        self.proj = nn.Conv2d(
+            in_channels,
+            embed_dim,
+            kernel_size=patch_size,
+            stride=patch_size
+        )
+        
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        # [B, C, H, W] -> [B, E, N, N] -> [B, E, N*N] -> [B, N*N, E]
+        # [B, E, H/P, W/P]
+        x = self.proj(x)
+        # [B, E, N*N]
+        x = x.flatten(2)
+        # [B, N*N, E]
+        x = x.transpose(1, 2)
+        x = self.dropout(x)
+        return x
+
+class PositionalEncoding(nn.Module):
+    """Inject positional information into input sequences using sine and cosine functions.
+    
+    Args:
+        d_model: Dimension of the model embeddings
+        dropout: Dropout probability
+        max_len: Maximum length of input sequences (default: 4096)
+    """
+    def __init__(self, d_model, dropout, max_len=4096):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        # (max_len, d_model)
+        pe = torch.zeros(max_len, d_model)
+        # (max_len, 1)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        # (d_model / 2)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        # (1, max_len, d_model)
+        pe = pe.unsqueeze(0)
+        # 缓冲区 不更新参数
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        assert self.pe.size(1) >= x.size(1), 'max_len < seq_len!'
+        
+        # (batch_size, seq_len, d_model)
+        x = x + self.pe[:, :x.size(1), :]
+        return self.dropout(x)
 
 class Config():
     def __init__(self):
@@ -13,15 +90,15 @@ class Config():
         self.model_type: str = 'HBA'  # ['Torch', 'Base', 'HBA']
         
         # 模型维度配置
-        self.d_model: int = 32
+        self.d_model: int = 64
         self.d_ffn: int = 256
         self.d_input: int = 7
         self.d_output: int = 7
         
         # 训练配置
         self.seq_len: int = 512
-        self.epochs: int = 100
-        self.batch_size: int = 64
+        self.epochs: int = 300
+        self.batch_size: int = 32
         self.lr: float = 0.0001
         self.dropout: float = 0.1
 

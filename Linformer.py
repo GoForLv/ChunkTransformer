@@ -3,51 +3,7 @@ import torch.nn as nn
 
 import math
 
-def softmax(scores: torch.Tensor, dim=-1):
-    """Compute softmax with improved numerical stability.
-    
-    Args:
-        scores: Input tensor containing unnormalized scores
-        dim: Dimension along which softmax will be computed (default: -1)
-    
-    Returns:
-        Tensor with same shape as input, with softmax applied along specified dimension
-    """
-    scores_max, _ = torch.max(scores, dim=dim, keepdim=True)
-    scores_exp = torch.exp(scores - scores_max)
-    attn = scores_exp / (scores_exp.sum(dim=dim, keepdim=True) + 1e-8)
-    return attn
-
-class PositionalEncoding(nn.Module):
-    """Inject positional information into input sequences using sine and cosine functions.
-    
-    Args:
-        d_model: Dimension of the model embeddings
-        dropout: Dropout probability
-        max_len: Maximum length of input sequences (default: 4096)
-    """
-    def __init__(self, d_model, dropout, max_len=4096):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-        # (max_len, d_model)
-        pe = torch.zeros(max_len, d_model)
-        # (max_len, 1)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        # (d_model / 2)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        # (1, max_len, d_model)
-        pe = pe.unsqueeze(0)
-        # 缓冲区 不更新参数
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        assert self.pe.size(1) >= x.size(1), 'max_len < seq_len!'
-        
-        # (batch_size, seq_len, d_model)
-        x = x + self.pe[:, :x.size(1), :]
-        return self.dropout(x)
+from utils import softmax, PatchEmbedding, PositionalEncoding
 
 class LinearSelfAttention(nn.Module):
     """
@@ -186,7 +142,11 @@ class Linformer(nn.Module):
     def __init__(self, d_model, n_head, d_ffn, num_encoder_layers,
                  seq_len, d_input, d_output, dropout, k_dim=None, share_kv=False):
         super().__init__()
-        self.embedding = nn.Linear(d_input, d_model)
+        self.d_input = d_input
+        self.patch_embedding = PatchEmbedding(embed_dim=d_model, dropout=dropout)
+        if d_input != 0:
+            self.embedding = nn.Linear(d_input, d_model)
+
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         self.layers = nn.ModuleList([LinformerLayer(d_model, n_head, d_ffn, seq_len, dropout, k_dim, share_kv)
                                         for _ in range(num_encoder_layers)])
@@ -195,10 +155,11 @@ class Linformer(nn.Module):
         self.init_parameters()
     
     def init_parameters(self):
-        nn.init.xavier_uniform_(self.embedding.weight)
-        nn.init.xavier_uniform_(self.out.weight)
+        if self.d_input != 0:
+            nn.init.xavier_uniform_(self.embedding.weight)
+            nn.init.constant_(self.embedding.bias, 0.)
 
-        nn.init.constant_(self.embedding.bias, 0.)
+        nn.init.xavier_uniform_(self.out.weight)
         nn.init.constant_(self.out.bias, 0.)
 
     def forward(self, x):
@@ -209,8 +170,13 @@ class Linformer(nn.Module):
         输出:
             (batch_size, seq_len, d_input)
         """
-        # (batch_size, seq_len, d_input)
-        x = self.embedding(x)
+        # ViT: (batch_size, channels, H, W)
+        if len(x.shape) == 4:
+            x = self.patch_embedding(x)
+        # LSTF: (batch_size, seq_len, d_input)
+        else:
+            x = self.embedding(x)
+
         # (batch_size, seq_len, d_model)
         x = self.pos_encoder(x)
         for layer in self.layers:
