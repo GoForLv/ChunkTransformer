@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J pytorch_test
-#SBATCH -p gput4
+#SBATCH -p gpu
 #SBATCH -n 1
 #SBATCH -o main.out
 #SBATCH -e main.err

@@ -90,8 +90,8 @@ class Config():
         self.model_type: str = 'HBA'  # ['Torch', 'Base', 'HBA']
         
         # 模型维度配置
-        self.d_model: int = 64
-        self.d_ffn: int = 256
+        self.d_model: int = 32
+        self.d_ffn: int = 128
         self.d_input: int = 7
         self.d_output: int = 7
         
@@ -269,7 +269,7 @@ class Logger():
         with open(log_path, 'a', encoding='utf-8') as log:
             if is_empty:
                 log.write('log_path,model,seq_len,d_block,d_ffn,train,forward,backward,validate,min_loss,test_loss,peak_memory/MB\n')
-            log.write(f"\n{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},{self.config.d_ffn},"
+            log.write(f"{self.today+'-'+str(self.counter)},{self.config.model_type},{self.config.seq_len},{self.config.d_block},{self.config.d_ffn},"
                     f"{self.timer.get_avg_time('train')},{self.timer.get_avg_time('forward')},"
                     f"{self.timer.get_avg_time('backward')},{self.timer.get_avg_time('validate')},"
                     f"{min_loss},{test_loss},{self.timer._peak_memory}\n")
