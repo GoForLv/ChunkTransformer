@@ -18,9 +18,9 @@ date
 echo "Train..."
 
 python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Base
-python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Torch
-python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Linformer
-python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=LocalHBA --d_block=8
+# python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Torch
+# python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Linformer
+# python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=LocalHBA --d_block=8
 python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=HBA --d_block=8
 
 python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Base
