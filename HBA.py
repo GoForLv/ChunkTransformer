@@ -181,7 +181,7 @@ class HBATransformer(nn.Module):
         x = self.pos_encoding(x)
 
         # (batch_size * n_block, d_block, d_model)
-        x = x.view(-1, self.d_block, self.d_model)
+        x = x.contiguous().view(-1, self.d_block, self.d_model)
         for layer in self.local_layers:
             x = layer(x)
 
@@ -240,7 +240,7 @@ class LocalHBATransformer(nn.Module):
         x = self.pos_encoding(x)
 
         # (batch_size * n_block, d_block, d_model)
-        x = x.view(-1, self.d_block, self.d_model)
+        x = x.contiguous().view(-1, self.d_block, self.d_model)
         for layer in self.local_layers:
             x = layer(x)
 

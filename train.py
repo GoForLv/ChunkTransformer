@@ -271,7 +271,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='帮助文档')
 
     parser.add_argument('--data', help='ETTh1, ETTh2, ETTm1, ETTm2')
-    parser.add_argument('--model', help='Torch, Base, HBA')
+    parser.add_argument('--model', help='')
     parser.add_argument('--seq_len', type=int, help='')
     parser.add_argument('--epochs', type=int, help='')
     parser.add_argument('--batch_size', type=int, help='')

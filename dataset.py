@@ -7,11 +7,12 @@ import os
 
 def load_mnist_data():
     transform = transforms.Compose([
+        transforms.Resize((32, 32)),  # 使用32x32的输入，方便patch划分
         transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))  # MNIST的标准归一化
     ])
-    # 60000 * tuple(tensor(1, 28, 28) float, int)
+
     train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-    # 10000
     test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
     return train_dataset, test_dataset
