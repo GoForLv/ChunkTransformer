@@ -30,10 +30,14 @@ echo "Train..."
 # python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=LocalHBA --d_block=8
 # python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=HBA --d_block=8
 
+# LocalHBA train
+python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=LocalHBA --d_block=8
+python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=LocalHBA --d_block=8
+
 # ViT train
-python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=LocalHBA --d_block=8
-python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=HBA --d_block=8
-python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=Base
-python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=Torch
-python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=Linformer
+python ViT.py --data=MNIST --epochs=30 --batch_size=32 --model=LocalHBA --d_block=8
+python ViT.py --data=MNIST --epochs=30 --batch_size=32 --model=HBA --d_block=8
+python ViT.py --data=MNIST --epochs=30 --batch_size=32 --model=Base
+python ViT.py --data=MNIST --epochs=30 --batch_size=32 --model=Torch
+python ViT.py --data=MNIST --epochs=30 --batch_size=32 --model=Linformer
 date

@@ -309,10 +309,9 @@ if __name__ == '__main__':
         # seq_lens = [64 * i for i in range(1, 8)]
         # ls = [512 * i for i in range(1, 20)]
         # seq_lens.extend(ls)
-        if config.model_type == 'HBA' or config.model_type == 'Base':
-            d_ffns = [64, 128, 256]
-        else:
-            d_ffns = [128]
+        
+        d_ffns = [64, 128, 256]
+
         for seq_len in seq_lens:
             for d_ffn in d_ffns:
                 config.seq_len = seq_len
