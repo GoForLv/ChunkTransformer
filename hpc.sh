@@ -17,16 +17,23 @@ date
 
 echo "Train..."
 
-python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Base
+# base train script
+# python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Base
 # python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Torch
 # python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=Linformer
 # python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=LocalHBA --d_block=8
-python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=HBA --d_block=8
+# python train.py --data=ETTh1 --epochs=300 --batch_size=64 --model=HBA --d_block=8
 
-python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Base
-python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Torch
-python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Linformer
-python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=LocalHBA --d_block=8
-python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=HBA --d_block=8
+# python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Base
+# python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Torch
+# python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=Linformer
+# python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=LocalHBA --d_block=8
+# python train.py --data=ETTh1 --epochs=300 --batch_size=32 --model=HBA --d_block=8
 
+# ViT train
+python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=LocalHBA --d_block=8
+python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=HBA --d_block=8
+python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=Base
+python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=Torch
+python ViT.py --data=MNIST --epochs=100 --batch_size=32 --model=Linformer
 date

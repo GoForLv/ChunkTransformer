@@ -110,9 +110,8 @@ def visualize(processor):
                         linestyle='-',
                         color=color(model),
                         marker='o',
-                        label=model,
-                        lw=3,
-                        markersize=10,
+                        lw=0.9,
+                        markersize=2.5,
                     )
                 else: 
                     # model.startswith('Base'):
@@ -122,17 +121,15 @@ def visualize(processor):
                         linestyle='--',
                         color=color(model),
                         marker='o',
-                        label=model,
-                        lw=3,
-                        markersize=10,
+                        lw=0.9,
+                        markersize=2.5,
                     )
 
                 # ax.plot(
                 #     *polyfit(seq_len[:nsamples], processor.data[model][phase][:nsamples], 2)
                 # )
         ax.grid()
-        ax.legend(loc='upper left', fontsize=8)
-        ax.set_xlabel(r'$log_2(L)$')
+        ax.set_xlabel(r'$log_2(L)$', fontsize=16)
         
         if phase == 'min_loss':
             ax.set_ylabel('loss')
@@ -142,9 +139,9 @@ def visualize(processor):
             labels = [f"{1024 * i}" if i > 0 else "0" for i in range(0, int(max_y/1024)+2, 4)]
 
             plt.yticks(ticks, labels)
-            ax.set_ylabel('Peak Memory(MB)', fontsize=14)
+            ax.set_ylabel('Peak Memory(MB)', fontsize=16)
         else:
-            ax.set_ylabel(r'$second / epoch$')
+            ax.set_ylabel(r'$second / epoch$', fontsize=16)
 
     custom_lines = [
         Line2D([0], [0], color='red', lw=0, marker='o'),
@@ -161,8 +158,8 @@ def visualize(processor):
         fontsize=16,
     )
 
-    plt.tick_params(axis='both', which='major', labelsize=14)  # 主刻度
-    plt.tick_params(axis='both', which='minor', labelsize=12)  # 次刻度
+    plt.tick_params(axis='both', which='major', labelsize=16)  # 主刻度
+    plt.tick_params(axis='both', which='minor', labelsize=14)  # 次刻度
 
     plt.tight_layout()
     plt.show()

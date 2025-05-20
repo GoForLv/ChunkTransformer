@@ -170,12 +170,12 @@ if __name__ == '__main__':
     log = open(log_path, 'a', encoding='utf-8')
 
     print(args)
-    log.write(str(args))
+    log.write('\n' + str(args) + '\n')
 
     for epoch in range(args.epochs):
-        print(f"\nEpoch {epoch+1}/{args.epochs}")
+        # print(f"\nEpoch {epoch+1}/{args.epochs}")
 
-        log.write(f"\nEpoch {epoch+1}/{args.epochs}\n")
+        # log.write(f"\nEpoch {epoch+1}/{args.epochs}\n")
         
         # 训练
         timer.start('train')
@@ -199,9 +199,14 @@ if __name__ == '__main__':
         # print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
         # print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%")
 
-        log.write(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%\n")
-        log.write(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%\n")
-        log.write(timer.display_record('epoch'))
+        # log.write(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%\n")
+        # log.write(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%\n")
+        timer.end_epoch()
 
     log.write(timer.display_record('average'))
+    log.write(f'Train Loss: {train_losses}\n')
+    log.write(f'Test Loss: {test_losses}\n')
+    log.write(f'Train Acc: {train_accs}\n')
+    log.write(f'Test Acc: {test_accs}\n')
+
     visualize(train_losses, test_losses, train_accs, test_accs, save_path=f'{args.model}-{args.batch_size}')
